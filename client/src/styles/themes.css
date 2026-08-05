@@ -1,0 +1,100 @@
+/* ---------- Dark (default) — matches the original Kýdos board ---------- */
+:root,
+[data-theme='dark'] {
+  --bg: #070c17;
+  --bg-gradient: radial-gradient(1200px 700px at 50% -10%, #0b1120, #05070f 70%);
+  --panel: #0d1424;
+  --panel-2: #111a2e;
+  --panel-3: #161f36;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+  --text: #e8ecf4;
+  --soft: #a9b4c9;
+  --mute: #6c7891;
+  --gold: #e6c46a;
+  --success: #7ecb98;
+  --danger: #e85d70;
+  --info: #6b78ea;
+  --violet: #b39ddb;
+  --accent: var(--gold);
+  --accent-contrast: #1a1406;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --ui: 'Manrope', system-ui, sans-serif;
+  --radius: 14px;
+  --shadow: 0 30px 80px -20px #000;
+}
+
+/* ---------- Light ---------- */
+[data-theme='light'] {
+  --bg: #eef1f7;
+  --bg-gradient: radial-gradient(1200px 700px at 50% -10%, #ffffff, #e7ebf3 70%);
+  --panel: #ffffff;
+  --panel-2: #f6f8fc;
+  --panel-3: #eef1f8;
+  --line: rgba(15, 23, 42, 0.1);
+  --line-strong: rgba(15, 23, 42, 0.18);
+  --text: #101828;
+  --soft: #46536b;
+  --mute: #7d8aa3;
+  --gold: #b5860a;
+  --success: #1c8a52;
+  --danger: #d13f52;
+  --info: #4453c9;
+  --violet: #7454c7;
+  --accent: #2f6fed;
+  --accent-contrast: #ffffff;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --ui: 'Manrope', system-ui, sans-serif;
+  --radius: 14px;
+  --shadow: 0 20px 50px -20px rgba(16, 24, 40, 0.25);
+}
+
+/* ---------- Ubuntu (Yaru-inspired) ---------- */
+[data-theme='ubuntu'] {
+  --bg: #2c001e;
+  --bg-gradient: radial-gradient(1100px 650px at 50% -10%, #3a0927, #17000f 75%);
+  --panel: #300a24;
+  --panel-2: #3c1030;
+  --panel-3: #47133a;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --text: #f3e9f0;
+  --soft: #d9bdd0;
+  --mute: #9c7f97;
+  --gold: #efb73e;
+  --success: #6bc46d;
+  --danger: #f15d5d;
+  --info: #77216f;
+  --violet: #ae63d1;
+  --accent: #e95420;
+  --accent-contrast: #ffffff;
+  --mono: 'Ubuntu Mono', ui-monospace, monospace;
+  --ui: 'Ubuntu', 'Manrope', system-ui, sans-serif;
+  --radius: 10px;
+  --shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- macOS-inspired ---------- */
+[data-theme='mac'] {
+  --bg: #eceef3;
+  --bg-gradient: linear-gradient(180deg, #f6f7fb 0%, #e6e8f0 100%);
+  --panel: rgba(255, 255, 255, 0.78);
+  --panel-2: rgba(246, 247, 251, 0.85);
+  --panel-3: rgba(236, 238, 245, 0.9);
+  --line: rgba(60, 60, 67, 0.14);
+  --line-strong: rgba(60, 60, 67, 0.24);
+  --text: #1d1d1f;
+  --soft: #4a4a4f;
+  --mute: #86868b;
+  --gold: #b5862a;
+  --success: #1f9254;
+  --danger: #d70015;
+  --info: #0a6cff;
+  --violet: #8944ab;
+  --accent: #0a84ff;
+  --accent-contrast: #ffffff;
+  --mono: 'SF Mono', ui-monospace, Menlo, monospace;
+  --ui: -apple-system, 'SF Pro Text', 'Manrope', system-ui, sans-serif;
+  --radius: 12px;
+  --shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.28);
+}
