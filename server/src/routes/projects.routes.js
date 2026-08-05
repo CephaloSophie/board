@@ -73,11 +73,14 @@ router.get('/:projectKey', loadProject, async (req, res) => {
 });
 
 router.patch('/:projectKey', loadProject, requireRole('superadmin'), async (req, res) => {
-  const { name, vendor, description, currentVersion, archived } = req.body || {};
+  const { name, vendor, description, currentVersion, sprintDurationDays, currentSprint, archived } =
+    req.body || {};
   if (name !== undefined) req.project.name = name;
   if (vendor !== undefined) req.project.vendor = vendor;
   if (description !== undefined) req.project.description = description;
   if (currentVersion !== undefined) req.project.currentVersion = currentVersion;
+  if (sprintDurationDays !== undefined) req.project.sprintDurationDays = Number(sprintDurationDays) || 7;
+  if (currentSprint !== undefined) req.project.currentSprint = currentSprint;
   if (archived !== undefined) req.project.archived = archived;
   await req.project.save();
   res.json({ project: req.project });

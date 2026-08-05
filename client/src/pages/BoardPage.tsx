@@ -12,6 +12,7 @@ import TaskModal from '../components/Task/TaskModal';
 import NewTaskModal from '../components/Task/NewTaskModal';
 import { EMPTY_FILTERS, type BoardView, type TaskFilters } from '../types';
 import { fmtDur, hoursOf } from '../utils/format';
+import { GROUP_OPTIONS, type GroupByKey } from '../components/Board/groupUtils';
 
 const VIEWS: { value: BoardView; label: string }[] = [
   { value: 'grouped', label: 'Board' },
@@ -28,6 +29,7 @@ export default function BoardPage() {
   const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
   const { data: tasks, isLoading } = useTasks(projectKey, filters);
   const [view, setView] = useState<BoardView>('grouped');
+  const [groupBy, setGroupBy] = useState<GroupByKey>('sprint');
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const updateTask = useUpdateTask(projectKey || '');
@@ -35,7 +37,7 @@ export default function BoardPage() {
   if (!projectKey) return null;
 
   function handleDrop(taskId: string, status: string) {
-    updateTask.mutate({ taskId, data: { status }, note: 'Déplacée par glisser-déposer.' } as any);
+    updateTask.mutate({ taskId, data: { status, note: 'Déplacée par glisser-déposer.' } });
   }
 
   const totalPoints = (tasks || []).reduce((a, t) => a + (t.complexity || 0), 0);
@@ -79,6 +81,16 @@ export default function BoardPage() {
           {project?.name} · v{project?.currentVersion}
         </span>
         <div className="header-spacer" />
+        <div className="ctrl" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ marginBottom: 0 }}>Regrouper par</label>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupByKey)}>
+            {GROUP_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="view-switcher">
           {VIEWS.map((v) => (
             <button key={v.value} className={view === v.value ? 'active' : ''} onClick={() => setView(v.value)}>
@@ -96,13 +108,33 @@ export default function BoardPage() {
       {isLoading && <div className="loadbox">Chargement des tâches…</div>}
 
       {!isLoading && tasks && view === 'grouped' && (
-        <GroupedBoard tasks={tasks} taxonomies={taxonomies} onOpen={setOpenTaskId} onDrop={handleDrop} />
+        <GroupedBoard
+          tasks={tasks}
+          taxonomies={taxonomies}
+          onOpen={setOpenTaskId}
+          onDrop={handleDrop}
+          groupBy={groupBy}
+          currentSprintKey={project?.currentSprint}
+        />
       )}
       {!isLoading && tasks && view === 'jira' && (
-        <JiraBoard tasks={tasks} taxonomies={taxonomies} onOpen={setOpenTaskId} onDrop={handleDrop} />
+        <JiraBoard
+          tasks={tasks}
+          taxonomies={taxonomies}
+          onOpen={setOpenTaskId}
+          onDrop={handleDrop}
+          groupBy={groupBy}
+          currentSprintKey={project?.currentSprint}
+        />
       )}
       {!isLoading && tasks && view === 'list' && (
-        <ListBoard tasks={tasks} taxonomies={taxonomies} onOpen={setOpenTaskId} />
+        <ListBoard
+          tasks={tasks}
+          taxonomies={taxonomies}
+          onOpen={setOpenTaskId}
+          groupBy={groupBy}
+          currentSprintKey={project?.currentSprint}
+        />
       )}
 
       {openTaskId && (
@@ -112,6 +144,8 @@ export default function BoardPage() {
         <NewTaskModal
           projectKey={projectKey}
           taxonomies={taxonomies}
+          defaultSprint={project?.currentSprint || null}
+          defaultVersion={project?.currentVersion}
           onClose={() => setCreating(false)}
           onCreated={(taskId) => {
             setCreating(false);

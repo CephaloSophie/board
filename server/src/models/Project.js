@@ -9,6 +9,10 @@ const projectSchema = new Schema(
     owner: { type: Schema.Types.ObjectId, ref: 'User' },
     currentVersion: { type: String, trim: true, default: '0.1.0' },
     complexityScale: { type: String, default: 'Fibonacci (points de story) : 1, 2, 3, 5, 8, 13' },
+    sprintDurationDays: { type: Number, default: 7 },
+    // key of the taxonomy(kind=sprint) that is considered "current" for
+    // the app (default target for new tasks, highlighted in the sidebar).
+    currentSprint: { type: String, default: null },
     archived: { type: Boolean, default: false },
   },
   { timestamps: true }
