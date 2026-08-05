@@ -53,7 +53,7 @@ export default function Filters({
         return (
           <div className="ctrl" style={{ flex: 1, minWidth: 160 }} key={field}>
             <label>Filtres {label.toLowerCase()}</label>
-            <div className="chips">
+            <div className="chips chips-scroll">
               {items.map((item) => (
                 <span
                   key={item.key}
@@ -81,7 +81,7 @@ export default function Filters({
       {users && users.length > 0 && (
         <div className="ctrl" style={{ flex: 1, minWidth: 160 }}>
           <label>Filtres assigné</label>
-          <div className="chips">
+          <div className="chips chips-scroll">
             {users.map((u) => (
               <span
                 key={u.id}

@@ -17,18 +17,27 @@ const DIMENSIONS: { field: string; kind: TaxonomyKind; label: string; required?:
 export default function NewTaskModal({
   projectKey,
   taxonomies,
+  defaultSprint,
+  defaultVersion,
   onClose,
   onCreated,
 }: {
   projectKey: string;
   taxonomies: TaxonomyItem[] | undefined;
+  defaultSprint?: string | null;
+  defaultVersion?: string;
   onClose: () => void;
   onCreated: (taskId: string) => void;
 }) {
   const createTask = useCreateTask(projectKey);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = { status: 'pending', priority: 'P2' };
+    if (defaultSprint) init.sprint = defaultSprint;
+    if (defaultVersion) init.version = defaultVersion;
+    return init;
+  });
   const [complexity, setComplexity] = useState('3');
   const [err, setErr] = useState<string | null>(null);
 

@@ -128,13 +128,35 @@ async function run() {
   }
   // Sprints start out mirroring versions 1:1 — a reasonable default that
   // teams can immediately reshape (rename, merge, add new ones) since sprint
-  // is tracked as its own independent field on every task.
+  // is tracked as its own independent field on every task. Each sprint gets
+  // a status (draft/ready/active/finished) inferred from its position vs
+  // the project's currentVersion, plus placeholder start/end dates spaced
+  // sprintDurationDays apart from a fixed anchor.
+  const sprintLen = 7; // matches Project.sprintDurationDays default
+  const anchor = new Date('2026-07-20T00:00:00.000Z').getTime();
+  const currentIdx = distinctVersions.indexOf(meta.currentVersion);
+  let currentSprintKey = null;
   for (const [i, v] of distinctVersions.entries()) {
-    await upsertTaxonomy(project._id, 'sprint', `sprint-${v}`, {
+    const startDate = new Date(anchor + i * sprintLen * 24 * 3600 * 1000).toISOString();
+    const endDate = new Date(anchor + (i + 1) * sprintLen * 24 * 3600 * 1000 - 1).toISOString();
+    let status = 'draft';
+    if (currentIdx >= 0) {
+      if (i < currentIdx) status = 'finished';
+      else if (i === currentIdx) status = 'active';
+      else if (i === currentIdx + 1) status = 'ready';
+    }
+    const key = `sprint-${v}`;
+    if (status === 'active') currentSprintKey = key;
+    await upsertTaxonomy(project._id, 'sprint', key, {
       label: `Sprint ${v}`,
       order: i,
-      meta: { linkedVersion: v },
+      meta: { linkedVersion: v, status, startDate, endDate, goal: `Livrer la version ${v}.` },
     });
+  }
+
+  if (currentSprintKey && !project.currentSprint) {
+    project.currentSprint = currentSprintKey;
+    await project.save();
   }
 
   console.log(`[seed] Seeding ${data.tasks.length} tasks...`);

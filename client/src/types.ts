@@ -20,9 +20,21 @@ export interface Project {
   owner?: string;
   currentVersion: string;
   complexityScale?: string;
+  sprintDurationDays: number;
+  currentSprint: string | null;
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SprintStatus = 'draft' | 'ready' | 'active' | 'finished';
+
+export interface SprintMeta {
+  status?: SprintStatus;
+  startDate?: string;
+  endDate?: string;
+  goal?: string;
+  linkedVersion?: string;
 }
 
 export type TaxonomyKind =

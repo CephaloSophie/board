@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   type DragEndEvent,
@@ -8,24 +8,16 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { Task, TaxonomyItem, TaxonomyKind } from '../../types';
+import type { Task, TaxonomyItem } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
 import { metaOf } from '../../utils/format';
 import TaskCard from './TaskCard';
+import GroupSidebar from './GroupSidebar';
+import GroupStats from './GroupStats';
+import { groupTasks, type GroupByKey } from './groupUtils';
 
-const GROUP_OPTIONS: { value: TaxonomyKind | 'status'; label: string }[] = [
-  { value: 'status', label: 'Statut (colonnes)' },
-  { value: 'version', label: 'Version' },
-  { value: 'sprint', label: 'Sprint' },
-  { value: 'category', label: 'Catégorie' },
-  { value: 'techno', label: 'Techno' },
-  { value: 'type', label: 'Type' },
-  { value: 'priority', label: 'Priorité' },
-  { value: 'area', label: 'Domaine' },
-];
-
-// A status column occurs once per group, so its droppable id is namespaced
-// as "<groupKey>::<statusKey>" — handleDragEnd below strips the prefix back off.
+// Namespaced droppable id so the same status column repeated across groups
+// stays uniquely identifiable to dnd-kit ("<groupKey>::<statusKey>").
 function GroupedStatusColumn({
   dropId,
   statusKey,
@@ -66,38 +58,23 @@ export default function GroupedBoard({
   taxonomies,
   onOpen,
   onDrop,
+  groupBy,
+  currentSprintKey,
 }: {
   tasks: Task[];
   taxonomies: TaxonomyItem[] | undefined;
   onOpen: (taskId: string) => void;
   onDrop: (taskId: string, status: string) => void;
+  groupBy: GroupByKey;
+  currentSprintKey?: string | null;
 }) {
-  const [groupBy, setGroupBy] = useState<TaxonomyKind | 'status'>('status');
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const statuses = taxonomiesByKind(taxonomies, 'status');
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const groups = useMemo(() => {
-    if (groupBy === 'status') return [{ key: '__all__', label: 'Toutes les tâches filtrées', tasks }];
-    const map = new Map<string, Task[]>();
-    for (const t of tasks) {
-      const k = (t as any)[groupBy] || '—';
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(t);
-    }
-    const keys = Array.from(map.keys()).sort((a, b) => {
-      if (groupBy === 'version' || groupBy === 'sprint') return b.localeCompare(a, undefined, { numeric: true });
-      return a.localeCompare(b);
-    });
-    return keys.map((k) => ({
-      key: k,
-      label:
-        groupBy === 'priority'
-          ? `${k} · ${metaOf(taxonomies, 'priority', k).label}`
-          : metaOf(taxonomies, groupBy, k).label || k,
-      tasks: map.get(k)!,
-    }));
-  }, [tasks, groupBy, taxonomies]);
+  const groups = useMemo(() => groupTasks(tasks, groupBy, taxonomies), [tasks, groupBy, taxonomies]);
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
@@ -109,67 +86,135 @@ export default function GroupedBoard({
     if (task && task.status !== status) onDrop(task.taskId, status);
   }
 
-  return (
-    <>
-      <div className="controls" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-        <div className="ctrl">
-          <label>Regrouper par</label>
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as TaxonomyKind | 'status')}>
-            {GROUP_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+  function scrollToGroup(key: string) {
+    if (key === '__top__') {
+      setActiveGroupKey(null);
+      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    setActiveGroupKey(key);
+    const el = document.getElementById(`group-block-${cssId(key)}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-      <DndContext
-        sensors={sensors}
-        onDragStart={(e) => setActiveTask((e.active.data.current?.task as Task) || null)}
-        onDragEnd={handleDragEnd}
-      >
-        <main className="board-main">
-          {groups.map((group) => {
-            const byStatus = new Map<string, Task[]>();
-            for (const t of group.tasks) {
-              if (!byStatus.has(t.status)) byStatus.set(t.status, []);
-              byStatus.get(t.status)!.push(t);
-            }
-            const points = group.tasks.reduce((a, t) => a + (t.complexity || 0), 0);
-            const orderedStatuses = statuses.filter((s) => byStatus.has(s.key));
-            for (const key of byStatus.keys()) {
-              if (!orderedStatuses.find((s) => s.key === key)) orderedStatuses.push({ key, label: key } as TaxonomyItem);
-            }
-            return (
-              <div className="group" key={group.key}>
-                <div className="group__head">
-                  <span className="group__title">{group.label}</span>
-                  <span className="group__meta">
-                    {group.tasks.length} tâches · {points} pts
-                  </span>
-                </div>
-                <div className="columns">
-                  {orderedStatuses.map((s) => (
-                    <GroupedStatusColumn
-                      key={s.key}
-                      dropId={`${group.key}::${s.key}`}
-                      statusKey={s.key}
-                      tasks={byStatus.get(s.key) || []}
-                      taxonomies={taxonomies}
-                      onOpen={onOpen}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {groups.length === 0 && <div className="empty">Aucune tâche ne correspond aux filtres.</div>}
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => setActiveTask((e.active.data.current?.task as Task) || null)}
+      onDragEnd={handleDragEnd}
+    >
+      {groupBy === 'none' ? (
+        // No grouping: render a single flat block, keeps the same layout the
+        // rest of the code paths use so drag-and-drop stays identical.
+        <main className="board-main" ref={containerRef}>
+          {groups.map((group) => (
+            <GroupBlock
+              key={group.key}
+              group={group}
+              statuses={statuses}
+              taxonomies={taxonomies}
+              onOpen={onOpen}
+              currentSprintKey={currentSprintKey}
+            />
+          ))}
+          {tasks.length === 0 && <div className="empty">Aucune tâche ne correspond aux filtres.</div>}
         </main>
-        <DragOverlay>
-          {activeTask && <TaskCard task={activeTask} taxonomies={taxonomies} onOpen={() => {}} />}
-        </DragOverlay>
-      </DndContext>
-    </>
+      ) : (
+        <div className="grouped-layout" ref={containerRef}>
+          <GroupSidebar
+            title={sidebarTitle(groupBy)}
+            groups={groups}
+            activeKey={activeGroupKey}
+            onSelect={scrollToGroup}
+            currentSprintKey={currentSprintKey}
+          />
+          <div className="groups-main">
+            {groups.map((group) => (
+              <GroupBlock
+                key={group.key}
+                group={group}
+                statuses={statuses}
+                taxonomies={taxonomies}
+                onOpen={onOpen}
+                currentSprintKey={currentSprintKey}
+              />
+            ))}
+            {tasks.length === 0 && <div className="empty">Aucune tâche ne correspond aux filtres.</div>}
+          </div>
+        </div>
+      )}
+      <DragOverlay>
+        {activeTask && <TaskCard task={activeTask} taxonomies={taxonomies} onOpen={() => {}} />}
+      </DragOverlay>
+    </DndContext>
   );
+}
+
+function GroupBlock({
+  group,
+  statuses,
+  taxonomies,
+  onOpen,
+  currentSprintKey,
+}: {
+  group: import('./groupUtils').TaskGroup;
+  statuses: TaxonomyItem[];
+  taxonomies: TaxonomyItem[] | undefined;
+  onOpen: (taskId: string) => void;
+  currentSprintKey?: string | null;
+}) {
+  const byStatus = new Map<string, Task[]>();
+  for (const t of group.tasks) {
+    if (!byStatus.has(t.status)) byStatus.set(t.status, []);
+    byStatus.get(t.status)!.push(t);
+  }
+  const orderedStatuses = statuses.filter((s) => byStatus.has(s.key));
+  for (const key of byStatus.keys()) {
+    if (!orderedStatuses.find((s) => s.key === key)) orderedStatuses.push({ key, label: key } as TaxonomyItem);
+  }
+  const isCurrent = currentSprintKey && group.key === currentSprintKey;
+  return (
+    <section id={`group-block-${cssId(group.key)}`} className="group-block">
+      <header className="group-block__head">
+        <span className="group-block__title" style={group.color ? { color: group.color } : undefined}>
+          {isCurrent && '★ '}
+          {group.label}
+        </span>
+        {group.sublabel && <span className="group-block__sub">{group.sublabel}</span>}
+        <GroupStats tasks={group.tasks} taxonomies={taxonomies} />
+      </header>
+      <div className="columns">
+        {orderedStatuses.map((s) => (
+          <GroupedStatusColumn
+            key={s.key}
+            dropId={`${group.key}::${s.key}`}
+            statusKey={s.key}
+            tasks={byStatus.get(s.key) || []}
+            taxonomies={taxonomies}
+            onOpen={onOpen}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function sidebarTitle(groupBy: GroupByKey): string {
+  const opt = groupBy;
+  switch (opt) {
+    case 'sprint': return 'Sprints';
+    case 'version': return 'Versions';
+    case 'category': return 'Catégories';
+    case 'techno': return 'Technos';
+    case 'area': return 'Domaines';
+    case 'type': return 'Types';
+    case 'priority': return 'Priorités';
+    case 'status': return 'Statuts';
+    case 'assignee': return 'Assignés';
+    default: return 'Groupes';
+  }
+}
+
+function cssId(v: string) {
+  return v.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
