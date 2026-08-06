@@ -159,3 +159,5 @@ fichiers serveur et chargement de tous les modules Express/Mongoose, mais
 **pas testé de bout en bout contre une vraie base MongoDB**. Il est
 recommandé de lancer `docker compose up --build` (ou un serveur MongoDB
 local) et de vérifier le flux complet avant mise en production.
+
+<!-- Ligne de test ajoutée pour vérifier le push. -->
