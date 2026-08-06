@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { Taxonomy, KINDS } = require('../models/Taxonomy');
 const { Task } = require('../models/Task');
+const { Event } = require('../models/Event');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadProject } = require('../middleware/project');
 
@@ -57,10 +58,19 @@ router.delete('/:id', requireRole('superadmin'), async (req, res) => {
   const item = await Taxonomy.findOne({ _id: req.params.id, project: req.project._id });
   if (!item) return res.status(404).json({ error: 'Élément introuvable.' });
 
-  const inUse = await Task.countDocuments({ project: req.project._id, [item.kind]: item.key });
+  // Block deletion while the value is still referenced. Event types are
+  // referenced by events; every other kind by tasks (sprint field included).
+  let inUse = 0;
+  let usageLabel = 'tâche(s)';
+  if (item.kind === 'eventType') {
+    inUse = await Event.countDocuments({ project: req.project._id, type: item.key });
+    usageLabel = 'événement(s)';
+  } else {
+    inUse = await Task.countDocuments({ project: req.project._id, [item.kind]: item.key });
+  }
   if (inUse > 0) {
     return res.status(409).json({
-      error: `Impossible de supprimer : ${inUse} tâche(s) utilisent encore "${item.label}". Archivez-la plutôt, ou réassignez ces tâches.`,
+      error: `Impossible de supprimer : ${inUse} ${usageLabel} utilisent encore "${item.label}". Archivez-la plutôt, ou réassignez-les.`,
     });
   }
   await item.deleteOne();

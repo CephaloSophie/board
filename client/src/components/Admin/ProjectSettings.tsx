@@ -12,7 +12,8 @@ export default function ProjectSettings({ projectKey }: { projectKey: string }) 
   const [vendor, setVendor] = useState('');
   const [description, setDescription] = useState('');
   const [currentVersion, setCurrentVersion] = useState('');
-  const [sprintDurationDays, setSprintDurationDays] = useState(7);
+  const [sprintDurationValue, setSprintDurationValue] = useState(1);
+  const [sprintDurationUnit, setSprintDurationUnit] = useState<'days' | 'weeks'>('weeks');
   const [currentSprint, setCurrentSprint] = useState<string>('');
 
   useEffect(() => {
@@ -21,7 +22,8 @@ export default function ProjectSettings({ projectKey }: { projectKey: string }) 
     setVendor(project.vendor || '');
     setDescription(project.description || '');
     setCurrentVersion(project.currentVersion);
-    setSprintDurationDays(project.sprintDurationDays || 7);
+    setSprintDurationValue(project.sprintDurationValue || 1);
+    setSprintDurationUnit(project.sprintDurationUnit || 'weeks');
     setCurrentSprint(project.currentSprint || '');
   }, [project?._id]);
 
@@ -51,15 +53,30 @@ export default function ProjectSettings({ projectKey }: { projectKey: string }) 
         </div>
 
         <div className="field">
-          <label>Durée d'un sprint (jours)</label>
-          <input
-            type="number"
-            min={1}
-            max={90}
-            value={sprintDurationDays}
-            onChange={(e) => setSprintDurationDays(Number(e.target.value) || 7)}
-            disabled={!canEdit}
-          />
+          <label>Durée d'un sprint</label>
+          <div className="row" style={{ gap: 8 }}>
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={sprintDurationValue}
+              onChange={(e) => setSprintDurationValue(Number(e.target.value) || 1)}
+              disabled={!canEdit}
+              style={{ width: 90 }}
+            />
+            <select
+              value={sprintDurationUnit}
+              onChange={(e) => setSprintDurationUnit(e.target.value as 'days' | 'weeks')}
+              disabled={!canEdit}
+            >
+              <option value="weeks">semaine(s)</option>
+              <option value="days">jour(s)</option>
+            </select>
+          </div>
+          <p className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>
+            N'affecte que les <b>prochains</b> sprints : les sprints en cours et passés gardent leurs
+            dates. Par défaut 1 semaine.
+          </p>
         </div>
 
         <div className="field">
@@ -97,7 +114,8 @@ export default function ProjectSettings({ projectKey }: { projectKey: string }) 
                 vendor,
                 description,
                 currentVersion,
-                sprintDurationDays,
+                sprintDurationValue,
+                sprintDurationUnit,
                 currentSprint: currentSprint || null,
               })
             }

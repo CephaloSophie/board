@@ -4,7 +4,20 @@ const { Schema, model } = require('mongoose');
 // status, priority, area, type, techno, category, version, sprint.
 // One schema keeps the admin CRUD (list/create/update/delete/reorder) identical
 // across all eight kinds instead of duplicating near-identical collections.
-const KINDS = ['status', 'priority', 'area', 'type', 'techno', 'category', 'version', 'sprint'];
+const KINDS = [
+  'status',
+  'priority',
+  'area',
+  'type',
+  'techno',
+  'category',
+  'version',
+  'sprint',
+  // Type of agile ceremony/event (refinement, grooming, technical point,
+  // architecture point, demo prep…). meta.features drives which sections
+  // the event editor shows; meta.icon is an emoji shown in the UI.
+  'eventType',
+];
 
 const taxonomySchema = new Schema(
   {

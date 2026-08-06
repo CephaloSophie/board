@@ -20,7 +20,8 @@ export interface Project {
   owner?: string;
   currentVersion: string;
   complexityScale?: string;
-  sprintDurationDays: number;
+  sprintDurationValue: number;
+  sprintDurationUnit: 'days' | 'weeks';
   currentSprint: string | null;
   archived: boolean;
   createdAt: string;
@@ -45,7 +46,64 @@ export type TaxonomyKind =
   | 'techno'
   | 'category'
   | 'version'
-  | 'sprint';
+  | 'sprint'
+  | 'eventType';
+
+export type EventFeature =
+  | 'participants'
+  | 'backlog'
+  | 'estimation'
+  | 'agenda'
+  | 'decisions'
+  | 'actions'
+  | 'adr'
+  | 'demo'
+  | 'notes';
+
+export interface EventTypeMeta {
+  icon?: string;
+  features?: EventFeature[];
+}
+
+export type EventStatus = 'draft' | 'scheduled' | 'done' | 'cancelled';
+
+export interface EventTaskLink {
+  _id: string;
+  task: { _id: string; taskId: string; title: string; status: string; priority?: string; complexity?: number } | string;
+  taskId?: string;
+  note?: string;
+  outcome?: string;
+  presenter?: UserRef | null;
+  order: number;
+}
+
+export interface ActionItem {
+  _id: string;
+  text: string;
+  assignee?: UserRef | string | null;
+  done: boolean;
+}
+
+export interface ProjectEvent {
+  _id: string;
+  project: string;
+  type: string;
+  title: string;
+  status: EventStatus;
+  sprint: string | null;
+  scheduledAt: string | null;
+  durationMin: number;
+  participants: UserRef[];
+  tasks: EventTaskLink[];
+  agenda: string;
+  notes: string;
+  decisions: string[];
+  actionItems: ActionItem[];
+  adr: { context: string; decision: string; alternatives: string; consequences: string };
+  createdBy?: UserRef | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface TaxonomyItem {
   _id: string;

@@ -48,6 +48,9 @@ export default function Header() {
           <Link className="btn ghost small" to={`/projects/${projectKey}/board`}>
             Board
           </Link>
+          <Link className="btn ghost small" to={`/projects/${projectKey}/events`}>
+            Rituels
+          </Link>
           <Link className="btn ghost small" to={`/projects/${projectKey}/admin`}>
             Administration
           </Link>

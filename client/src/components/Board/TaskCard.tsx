@@ -1,7 +1,10 @@
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useDraggable } from '@dnd-kit/core';
 import type { Task, TaxonomyItem } from '../../types';
 import { metaOf } from '../../utils/format';
 import Avatar from '../common/Avatar';
+import AddToEventPopup from '../Task/AddToEventPopup';
 
 export default function TaskCard({
   task,
@@ -12,11 +15,13 @@ export default function TaskCard({
   taxonomies: TaxonomyItem[] | undefined;
   onOpen: (taskId: string) => void;
 }) {
+  const { projectKey } = useParams();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.taskId,
     data: { task },
   });
   const pm = metaOf(taxonomies, 'priority', task.priority);
+  const [addingToEvent, setAddingToEvent] = useState(false);
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 10 }
@@ -38,6 +43,20 @@ export default function TaskCard({
             {task.priority}
           </span>
         )}
+        {projectKey && (
+          <button
+            className="icon-btn"
+            style={{ marginLeft: 'auto' }}
+            title="Ajouter à un rituel / événement"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddingToEvent(true);
+            }}
+          >
+            ⊕
+          </button>
+        )}
       </div>
       <div className="card__title">{task.title}</div>
       <div className="card__tags">
@@ -53,6 +72,14 @@ export default function TaskCard({
           </span>
         )}
       </div>
+      {addingToEvent && projectKey && (
+        <AddToEventPopup
+          projectKey={projectKey}
+          task={task}
+          taxonomies={taxonomies}
+          onClose={() => setAddingToEvent(false)}
+        />
+      )}
     </div>
   );
 }

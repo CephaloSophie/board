@@ -39,8 +39,7 @@ export function useCreateProject() {
 export function useUpdateProject(key: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Project> | { currentSprint: string | null }) =>
-      patch<{ project: Project }>(`/projects/${key}`, data),
+    mutationFn: (data: Partial<Project>) => patch<{ project: Project }>(`/projects/${key}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project', key] });
       qc.invalidateQueries({ queryKey: ['projects'] });
