@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useProjects } from '../../api/projects';
@@ -15,9 +15,23 @@ const THEME_LABELS: Record<Theme, string> = {
 export default function Header() {
   const { user, logout } = useAuth();
   const { theme, setTheme, themes } = useTheme();
-  const { projectKey } = useParams();
   const { data: projects } = useProjects();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Header sits above the nested <Routes>, so useParams() can't see
+  // :projectKey — derive it (and the active section) from the pathname instead.
+  const match = location.pathname.match(/^\/projects\/([^/]+)(?:\/([^/]+))?/);
+  const projectKey = match?.[1];
+  const section = match?.[2] || 'board';
+
+  const navItems = projectKey
+    ? [
+        { to: `/projects/${projectKey}/board`, label: 'Board', active: section === 'board' || section === 'tasks' },
+        { to: `/projects/${projectKey}/events`, label: 'Rituels', active: section === 'events' },
+        { to: `/projects/${projectKey}/admin`, label: 'Administration', active: section === 'admin' },
+      ]
+    : [];
 
   return (
     <header className="app-header">
@@ -43,18 +57,14 @@ export default function Header() {
         </div>
       )}
 
-      {projectKey && (
-        <>
-          <Link className="btn ghost small" to={`/projects/${projectKey}/board`}>
-            Board
-          </Link>
-          <Link className="btn ghost small" to={`/projects/${projectKey}/events`}>
-            Rituels
-          </Link>
-          <Link className="btn ghost small" to={`/projects/${projectKey}/admin`}>
-            Administration
-          </Link>
-        </>
+      {navItems.length > 0 && (
+        <nav className="main-nav">
+          {navItems.map((item) => (
+            <Link key={item.to} to={item.to} className={`nav-link${item.active ? ' active' : ''}`}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       )}
 
       <div className="header-spacer" />

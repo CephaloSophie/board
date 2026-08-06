@@ -36,6 +36,15 @@ button { font-family: inherit; }
 
 .project-switcher select { min-width: 170px; }
 
+.main-nav { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; padding: 3px; }
+.nav-link {
+  border: none; background: transparent; color: var(--soft); border-radius: 7px;
+  padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-link:hover { color: var(--text); background: var(--panel-2); }
+.nav-link.active { background: var(--accent); color: var(--accent-contrast); }
+
 .theme-switcher { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; padding: 3px; }
 .theme-switcher button {
   border: none; background: transparent; color: var(--mute); border-radius: 7px; padding: 5px 9px;
