@@ -47,6 +47,15 @@ async function upsertUser({ username, email, displayName, role, color }) {
   return user;
 }
 
+// Some tasks.json rows carry a story-point value that is actually a duration
+// string (e.g. "1 h", "0.5 h"). Coerce anything to a finite number of points,
+// pulling the leading numeric part out of such strings.
+function toPoints(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const n = parseFloat(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
 async function upsertTaxonomy(projectId, kind, key, fields) {
   return Taxonomy.findOneAndUpdate(
     { project: projectId, kind, key },
@@ -215,7 +224,7 @@ async function run() {
           category: t.category,
           estimate: t.estimate,
           duration: t.duration,
-          complexity: t.complexity || 0,
+          complexity: toPoints(t.complexity),
           spec: t.spec,
           instructions: t.instructions || [],
           acceptance: t.acceptance || [],

@@ -41,7 +41,17 @@ const taskSchema = new Schema(
 
     estimate: { type: String, trim: true },
     duration: { type: String, trim: true },
-    complexity: { type: Number, default: 0 },
+    // Coerce loosely-typed inputs (e.g. "1 h", "5") to a finite number of
+    // points so a stray string can never blow up a save/update.
+    complexity: {
+      type: Number,
+      default: 0,
+      set: (v) => {
+        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+        const n = parseFloat(String(v ?? '').replace(',', '.'));
+        return Number.isFinite(n) ? n : 0;
+      },
+    },
     spec: { type: String, trim: true },
 
     instructions: { type: [String], default: [] },
