@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
 import CommentList from './CommentList';
 import HistoryList from './HistoryList';
+import AddToEventPopup from './AddToEventPopup';
 
 // Fields that live in the left sidebar of the detail view (Jira-style).
 const SIDE_DIMENSIONS = [
@@ -48,6 +49,7 @@ export default function TaskDetail({
   const [duration, setDuration] = useState(task.duration || '');
   const [estimate, setEstimate] = useState(task.estimate || '');
   const [editingText, setEditingText] = useState(false);
+  const [addingToEvent, setAddingToEvent] = useState(false);
 
   useEffect(() => {
     setTitle(task.title);
@@ -120,6 +122,9 @@ export default function TaskDetail({
           )}
         </div>
         <div className="row">
+          <button className="btn ghost small" onClick={() => setAddingToEvent(true)} title="Ajouter à un rituel / événement">
+            ⊕ Rituel
+          </button>
           {!standalone && (
             <Link className="btn ghost small" to={`/projects/${projectKey}/tasks/${task.taskId}`}>
               Page dédiée ↗
@@ -132,6 +137,10 @@ export default function TaskDetail({
           )}
         </div>
       </div>
+
+      {addingToEvent && (
+        <AddToEventPopup projectKey={projectKey} task={task} taxonomies={taxonomies} onClose={() => setAddingToEvent(false)} />
+      )}
 
       <div className="task-layout">
         {/* ---------- Sidebar: metadata (like Jira) ---------- */}

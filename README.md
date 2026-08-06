@@ -60,7 +60,19 @@ Le super admin crée les comptes développeurs depuis **Administration → Utili
   - `history[]` (journal auto-généré à chaque changement de champ suivi :
     statut, priorité, assigné, sprint, version, type, catégorie, techno,
     domaine, points).
+- `Event` — un rituel / événement agile (refinement, grooming, point
+  technique, point architecture, préparation de démo, rétrospective…),
+  rattachable à un sprint, avec participants, tâches liées, ordre du jour,
+  décisions, actions à suivre, champs ADR (architecture) et ordre de démo.
+  Les sections affichées sont pilotées par `meta.features` du type
+  d'événement — chaque type n'expose que ce qui le concerne.
 - `Counter` — un compteur par projet pour générer les identifiants `KB-155`, etc.
+
+Le `Project` porte aussi la cadence des sprints : `sprintDurationValue` +
+`sprintDurationUnit` (jours/semaines, défaut **1 semaine**) et
+`currentSprint`. Modifier la durée n'affecte **que les futurs sprints** —
+chaque sprint stocke ses propres dates, donc rien n'est recalculé
+rétroactivement.
 
 Un nouveau projet peut être créé depuis l'écran **Projets** (super admin) : il
 reçoit automatiquement un jeu de taxonomies par défaut, prêtes à être
@@ -87,6 +99,26 @@ adaptées.
 - Gestion des utilisateurs par le super admin (création des comptes
   développeurs, rôles).
 - Création de nouveaux projets.
+- **Regroupement multi-boards** : dans les 3 vues, on choisit une dimension
+  de regroupement (sprint, version, catégorie, techno, domaine, type,
+  priorité, statut, assigné) ; chaque groupe s'affiche comme son propre
+  mini-board avec ses colonnes de statut et une barre de stats (points à
+  faire / en cours / terminés, total, estimation, non assignés) — utile pour
+  le PO / scrum master. Une barre latérale liste les groupes et met en avant
+  le sprint courant.
+- **Sprints configurables** : statut (brouillon / prêt / actif / terminé),
+  dates de début/fin, objectif ; durée par défaut des futurs sprints réglée
+  dans les paramètres du projet ; sélection du sprint courant ; boutons
+  « sprint précédent / suivant » sur chaque tâche.
+- **Espace Rituels & événements** : créer et gérer refinement, grooming,
+  point technique, point architecture, préparation de démo, rétrospective
+  (types configurables par le super admin, avec icône et sections propres à
+  chaque type). Rattachement à un sprint, participants, tâches liées.
+- **Ajout rapide d'une tâche à un événement** : une icône ⊕ sur chaque carte
+  de tâche (et dans le détail) ouvre un popup pour la rattacher à un
+  événement existant ou en créer un à la volée.
+- Archivage (au lieu de suppression) de n'importe quelle taxonomie encore
+  utilisée.
 
 ## Limite connue de cet environnement de build
 

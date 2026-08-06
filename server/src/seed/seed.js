@@ -88,6 +88,8 @@ async function run() {
         description: meta.description,
         currentVersion: meta.currentVersion,
         complexityScale: meta.complexityScale,
+        sprintDurationValue: 1,
+        sprintDurationUnit: 'weeks',
         owner: ameur._id,
       },
     },
@@ -118,6 +120,25 @@ async function run() {
   }
   for (const [i, c] of (meta.categories || []).entries()) {
     await upsertTaxonomy(project._id, 'category', c, { label: c, order: i });
+  }
+
+  // Default agile ceremony/event types. meta.features selects which sections
+  // the event editor renders; meta.icon is the emoji shown in listings.
+  const DEFAULT_EVENT_TYPES = [
+    { key: 'refinement', label: 'Refinement', color: '#6b78ea', icon: '🔍', features: ['participants', 'backlog', 'estimation', 'agenda', 'actions', 'decisions'] },
+    { key: 'grooming', label: 'Grooming', color: '#7ecb98', icon: '🌱', features: ['participants', 'backlog', 'estimation', 'agenda'] },
+    { key: 'technical', label: 'Point technique', color: '#e6c46a', icon: '🛠️', features: ['participants', 'agenda', 'decisions', 'actions', 'backlog'] },
+    { key: 'architecture', label: 'Point architecture', color: '#b39ddb', icon: '🏛️', features: ['participants', 'adr', 'decisions', 'actions'] },
+    { key: 'demo_prep', label: 'Préparation démo', color: '#e0a458', icon: '🎬', features: ['participants', 'demo', 'backlog', 'agenda'] },
+    { key: 'retro', label: 'Rétrospective', color: '#e85d70', icon: '🔄', features: ['participants', 'decisions', 'actions', 'notes'] },
+  ];
+  for (const [i, e] of DEFAULT_EVENT_TYPES.entries()) {
+    await upsertTaxonomy(project._id, 'eventType', e.key, {
+      label: e.label,
+      color: e.color,
+      order: i,
+      meta: { icon: e.icon, features: e.features },
+    });
   }
 
   const distinctVersions = Array.from(new Set(data.tasks.map((t) => t.version).filter(Boolean))).sort(
