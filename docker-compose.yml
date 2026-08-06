@@ -16,10 +16,10 @@ services:
       MONGODB_URI: mongodb://mongo:27017/board
       JWT_SECRET: change-me-in-production
       JWT_EXPIRES_IN: 30d
-      PORT: 4000
+      PORT: 7002
       CLIENT_ORIGIN: "*"
     ports:
-      - "4000:4000"
+      - "7002:7002"
 
 volumes:
   mongo_data:

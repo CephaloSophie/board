@@ -16,25 +16,53 @@ docker compose up --build -d
 docker compose run --rm app node src/seed/seed.js   # importe tasks.json + crée les comptes
 ```
 
-L'application est servie sur http://localhost:4000.
+L'application est servie sur http://localhost:7002.
 
 ## Démarrage en local (sans Docker)
 
 Prérequis : Node.js 20+, une instance MongoDB accessible (locale ou Atlas).
 
+Ports par défaut : **serveur/API 7002**, **client 7001**.
+
 ```bash
 # Serveur
 cd server
 npm install
-cp .env.example .env      # ajuster MONGODB_URI si besoin
+cp .env.example .env      # déjà pré-rempli (MongoDB local root:toor, port 7002)
 npm run seed               # importe tasks.json (projet Kýdos Belote) + comptes superadmin
-npm run dev                 # http://localhost:4000
+npm run dev                 # http://localhost:7002
 
 # Client (autre terminal)
 cd client
 npm install
-npm run dev                 # http://localhost:5173 (proxy /api -> :4000)
+cp .env.example .env      # VITE_PORT=7001, VITE_API_PROXY_TARGET=http://localhost:7002
+npm run dev                 # http://localhost:7001 (proxy /api -> :7002)
 ```
+
+Le serveur charge automatiquement `server/.env` quel que soit le dossier de
+lancement (dotenv pointé sur le fichier, pas sur le cwd).
+
+## Lancement avec PM2
+
+Un fichier PM2 est fourni pour chaque partie ; chacun lit son propre `.env`.
+
+```bash
+# API (server/.env → port 7002, MongoDB…)
+cd server && npm install && npm run seed
+pm2 start ecosystem.config.js
+
+# Client (client/.env → port 7001, proxy /api → 7002)
+cd ../client && npm install
+pm2 start ecosystem.config.cjs
+
+pm2 status         # kydos-server + kydos-client
+pm2 logs           # journaux
+pm2 save           # persister au reboot
+```
+
+Le fichier client lance le serveur Vite (rechargement à chaud). Pour servir un
+build de production à la place : `npm run build` puis remplacer les `args` du
+`ecosystem.config.cjs` par `preview --host --port 7001`.
 
 ## Comptes par défaut (créés par le seed)
 
