@@ -13,6 +13,7 @@ const { Project } = require('../models/Project');
 const { Taxonomy } = require('../models/Taxonomy');
 const { Task } = require('../models/Task');
 const { Counter } = require('../models/Counter');
+const { Team } = require('../models/Team');
 const { hashPassword } = require('../utils/password');
 
 const DATA_PATH = path.join(__dirname, '..', '..', '..', 'tasks.json');
@@ -85,6 +86,13 @@ async function run() {
     role: 'superadmin',
     color: '#7ecb98',
   });
+
+  // A few demo teammates covering the agile roles (password @bloardKydos).
+  const po = await upsertUser({ username: 'nadia', email: 'nadia@kydos.local', displayName: 'Nadia (PO)', role: 'product_owner', color: '#e0a458' });
+  const sm = await upsertUser({ username: 'yassine', email: 'yassine@kydos.local', displayName: 'Yassine (SM)', role: 'scrum_master', color: '#6b78ea' });
+  const lead = await upsertUser({ username: 'sami', email: 'sami@kydos.local', displayName: 'Sami (Lead)', role: 'team_lead', color: '#b39ddb' });
+  const dev = await upsertUser({ username: 'lina', email: 'lina@kydos.local', displayName: 'Lina (Dev)', role: 'developer', color: '#7ecb98' });
+  const qa = await upsertUser({ username: 'omar', email: 'omar@kydos.local', displayName: 'Omar (QA)', role: 'qa', color: '#e85d70' });
 
   console.log(`[seed] Upserting project ${meta.project}...`);
   const project = await Project.findOneAndUpdate(
@@ -239,6 +247,28 @@ async function run() {
   }
 
   await Counter.findByIdAndUpdate(project.key, { $max: { seq: maxSeq } }, { upsert: true });
+
+  console.log('[seed] Seeding demo team...');
+  await Team.findOneAndUpdate(
+    { project: project._id, name: 'Kýdos Core' },
+    {
+      $set: {
+        project: project._id,
+        name: 'Kýdos Core',
+        color: '#e6c46a',
+        description: "Équipe principale du projet Kýdos Belote.",
+        capacityPoints: 40,
+        members: [
+          { user: po._id, teamRole: 'po', capacityPoints: 0 },
+          { user: sm._id, teamRole: 'sm', capacityPoints: 0 },
+          { user: lead._id, teamRole: 'lead', capacityPoints: 12 },
+          { user: dev._id, teamRole: 'developer', capacityPoints: 16 },
+          { user: qa._id, teamRole: 'qa', capacityPoints: 12 },
+        ],
+      },
+    },
+    { upsert: true }
+  );
 
   console.log('[seed] Done.');
   console.log(`[seed] Superadmins: ameur / hamido — password: ${DEFAULT_PASSWORD}`);

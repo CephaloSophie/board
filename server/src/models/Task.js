@@ -59,6 +59,7 @@ const taskSchema = new Schema(
 
     assignee: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reporter: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    team: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
 
     comments: { type: [commentSchema], default: [] },
     history: { type: [historySchema], default: [] },

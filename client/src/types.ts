@@ -1,4 +1,31 @@
-export type Role = 'superadmin' | 'developer';
+export type Role =
+  | 'superadmin'
+  | 'project_manager'
+  | 'product_owner'
+  | 'scrum_master'
+  | 'team_lead'
+  | 'developer'
+  | 'qa';
+
+export type TeamRole = 'lead' | 'developer' | 'qa' | 'po' | 'sm' | 'designer' | 'stakeholder';
+
+export interface TeamMember {
+  user: UserRef | string;
+  teamRole: TeamRole;
+  capacityPoints: number;
+}
+
+export interface Team {
+  _id: string;
+  project: string;
+  name: string;
+  color: string;
+  description: string;
+  capacityPoints: number;
+  members: TeamMember[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface PublicUser {
   id: string;
@@ -167,6 +194,7 @@ export interface Task {
   acceptance: string[];
   assignee?: UserRef | null;
   reporter?: UserRef | null;
+  team?: { _id: string; name: string; color?: string } | null;
   comments: Comment[];
   history: HistoryEntry[];
   createdAt: string;

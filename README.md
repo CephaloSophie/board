@@ -66,12 +66,21 @@ build de production à la place : `npm run build` puis remplacer les `args` du
 
 ## Comptes par défaut (créés par le seed)
 
-| Identifiant | Rôle       | Mot de passe   |
-|-------------|-----------|----------------|
-| `ameur`     | superadmin | `@bloardKydos` |
-| `hamido`    | superadmin | `@bloardKydos` |
+| Identifiant | Rôle          | Mot de passe   |
+|-------------|---------------|----------------|
+| `ameur`     | Super admin   | `@bloardKydos` |
+| `hamido`    | Super admin   | `@bloardKydos` |
+| `nadia`     | Product Owner | `@bloardKydos` |
+| `yassine`   | Scrum Master  | `@bloardKydos` |
+| `sami`      | Chef d'équipe | `@bloardKydos` |
+| `lina`      | Développeur   | `@bloardKydos` |
+| `omar`      | QA / Testeur  | `@bloardKydos` |
 
-Le super admin crée les comptes développeurs depuis **Administration → Utilisateurs**.
+Le super admin crée les comptes depuis **Administration → Utilisateurs**. Les
+rôles disponibles : Super admin, Chef de projet, Product Owner, Scrum Master,
+Chef d'équipe, Développeur, QA. Les rôles « manager » (super admin, chef de
+projet, Scrum Master, PO, chef d'équipe) peuvent gérer les taxonomies, les
+sprints, les équipes et les paramètres projet.
 
 ## Modèle de données MongoDB
 
@@ -147,6 +156,19 @@ adaptées.
   événement existant ou en créer un à la volée.
 - Archivage (au lieu de suppression) de n'importe quelle taxonomie encore
   utilisée.
+- **Rôles agiles** : Super admin, Chef de projet, Product Owner, Scrum Master,
+  Chef d'équipe, Développeur, QA — avec permissions différenciées.
+- **Équipes** : constituer des équipes (membres, rôle dans l'équipe, capacité
+  par sprint en points), assigner une tâche à une équipe.
+- **Tableau de bord Scrum** (`/projects/:key/dashboard`) : vélocité moyenne et
+  par sprint, **burndown réel** du sprint courant (calculé depuis l'historique
+  des tâches), engagé vs capacité d'équipe, charge par personne (points par
+  état), métriques QA (bugs ouverts, en QA, taux de défauts) et des cartes
+  d'indicateurs par rôle (PO / Scrum Master / Chef d'équipe / QA).
+- **Sprint courant** mis en avant sur le board : encadré spécial avec chrono
+  en direct, progression et statistiques.
+- **Vue Planning** : colonnes = dimension de regroupement ; glisser une tâche
+  la replanifie (change son sprint, sa version, son assigné, etc.).
 
 ## Limite connue de cet environnement de build
 

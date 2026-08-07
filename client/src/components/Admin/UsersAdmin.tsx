@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { PublicUser } from '../../types';
+import type { PublicUser, Role } from '../../types';
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../../api/users';
+import { ROLE_LABELS, ROLE_ORDER } from '../../utils/roles';
 import Avatar from '../common/Avatar';
 
 export default function UsersAdmin() {
@@ -69,13 +70,16 @@ function UserRow({ user }: { user: PublicUser }) {
         <select
           value={role}
           onChange={(e) => {
-            const next = e.target.value as PublicUser['role'];
+            const next = e.target.value as Role;
             setRole(next);
             updateUser.mutate({ id: user.id, data: { role: next } });
           }}
         >
-          <option value="developer">developer</option>
-          <option value="superadmin">superadmin</option>
+          {ROLE_ORDER.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
         </select>
       </td>
       <td>{user.active ? 'Actif' : 'Désactivé'}</td>
@@ -145,8 +149,11 @@ function NewUserForm({
           <div className="field">
             <label>Rôle</label>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="developer">developer</option>
-              <option value="superadmin">superadmin</option>
+              {ROLE_ORDER.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
             </select>
           </div>
           {err && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}

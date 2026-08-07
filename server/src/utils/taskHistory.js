@@ -11,6 +11,7 @@ const TRACKED_FIELDS = [
   'techno',
   'area',
   'complexity',
+  'team',
 ];
 
 function valuesEqual(a, b) {

@@ -11,6 +11,7 @@ const projectsRoutes = require('./routes/projects.routes');
 const taxonomiesRoutes = require('./routes/taxonomies.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const eventsRoutes = require('./routes/events.routes');
+const teamsRoutes = require('./routes/teams.routes');
 
 const app = express();
 app.use(cors({ origin: clientOrigin === '*' ? true : clientOrigin.split(','), credentials: true }));
@@ -24,6 +25,7 @@ app.use('/api/projects', projectsRoutes);
 app.use('/api/projects/:projectKey/taxonomies', taxonomiesRoutes);
 app.use('/api/projects/:projectKey/tasks', tasksRoutes);
 app.use('/api/projects/:projectKey/events', eventsRoutes);
+app.use('/api/projects/:projectKey/teams', teamsRoutes);
 
 // Serve the built SPA in production, if present.
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');

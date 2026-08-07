@@ -35,6 +35,7 @@ router.get('/', async (req, res) => {
   let tasks = await Task.find(filter)
     .populate('assignee', 'username displayName color')
     .populate('reporter', 'username displayName color')
+    .populate('team', 'name color')
     .sort({ taskId: 1 });
 
   if (q.search) {
@@ -61,6 +62,7 @@ router.get('/:taskId', async (req, res) => {
   const task = await Task.findOne({ project: req.project._id, taskId: req.params.taskId })
     .populate('assignee', 'username displayName color')
     .populate('reporter', 'username displayName color')
+    .populate('team', 'name color')
     .populate('comments.author', 'username displayName color')
     .populate('history.by', 'username displayName color');
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
@@ -113,6 +115,7 @@ router.post('/', async (req, res) => {
   const populated = await task.populate([
     { path: 'assignee', select: 'username displayName color' },
     { path: 'reporter', select: 'username displayName color' },
+    { path: 'team', select: 'name color' },
   ]);
   res.status(201).json({ task: populated });
 });
@@ -128,6 +131,7 @@ router.patch('/:taskId', async (req, res) => {
   const populated = await task.populate([
     { path: 'assignee', select: 'username displayName color' },
     { path: 'reporter', select: 'username displayName color' },
+    { path: 'team', select: 'name color' },
     { path: 'comments.author', select: 'username displayName color' },
     { path: 'history.by', select: 'username displayName color' },
   ]);

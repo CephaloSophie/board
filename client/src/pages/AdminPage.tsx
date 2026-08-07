@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isSuperadmin } from '../utils/roles';
 import TaxonomyAdmin from '../components/Admin/TaxonomyAdmin';
 import UsersAdmin from '../components/Admin/UsersAdmin';
+import TeamsAdmin from '../components/Admin/TeamsAdmin';
 import ProjectSettings from '../components/Admin/ProjectSettings';
 
-type Tab = 'taxonomies' | 'users' | 'project';
+type Tab = 'taxonomies' | 'teams' | 'users' | 'project';
 
 export default function AdminPage() {
   const { projectKey } = useParams();
@@ -19,7 +21,10 @@ export default function AdminPage() {
         <button className={tab === 'taxonomies' ? 'active' : ''} onClick={() => setTab('taxonomies')}>
           Taxonomies
         </button>
-        {user?.role === 'superadmin' && (
+        <button className={tab === 'teams' ? 'active' : ''} onClick={() => setTab('teams')}>
+          Équipes
+        </button>
+        {isSuperadmin(user?.role) && (
           <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
             Utilisateurs
           </button>
@@ -30,7 +35,8 @@ export default function AdminPage() {
       </nav>
       <div className="admin-panel">
         {tab === 'taxonomies' && <TaxonomyAdmin projectKey={projectKey} />}
-        {tab === 'users' && user?.role === 'superadmin' && <UsersAdmin />}
+        {tab === 'teams' && <TeamsAdmin projectKey={projectKey} />}
+        {tab === 'users' && isSuperadmin(user?.role) && <UsersAdmin />}
         {tab === 'project' && <ProjectSettings projectKey={projectKey} />}
       </div>
     </div>

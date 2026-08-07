@@ -3,6 +3,7 @@ import type { EventFeature, SprintMeta, SprintStatus, TaxonomyItem, TaxonomyKind
 import { useCreateTaxonomy, useDeleteTaxonomy, useTaxonomies, useUpdateTaxonomy, taxonomiesByKind } from '../../api/taxonomies';
 import { useProject, useUpdateProject } from '../../api/projects';
 import { useAuth } from '../../context/AuthContext';
+import { isManager } from '../../utils/roles';
 
 const KINDS: { value: TaxonomyKind; label: string }[] = [
   { value: 'status', label: 'Statuts' },
@@ -41,7 +42,7 @@ function addDays(base: Date, days: number): Date {
 
 export default function TaxonomyAdmin({ projectKey }: { projectKey: string }) {
   const { user } = useAuth();
-  const canEdit = user?.role === 'superadmin';
+  const canEdit = isManager(user?.role);
   const { data: taxonomies } = useTaxonomies(projectKey);
   const { data: project } = useProject(projectKey);
   const updateProject = useUpdateProject(projectKey);

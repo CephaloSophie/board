@@ -4,6 +4,7 @@ import type { Task, TaxonomyItem } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
 import { useUpdateTask, useDeleteTask } from '../../api/tasks';
 import { useUsers } from '../../api/users';
+import { useTeams } from '../../api/teams';
 import { metaOf } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
@@ -38,6 +39,7 @@ export default function TaskDetail({
 }) {
   const { user } = useAuth();
   const { data: users } = useUsers();
+  const { data: teams } = useTeams(projectKey);
   const updateTask = useUpdateTask(projectKey);
   const deleteTask = useDeleteTask(projectKey);
 
@@ -166,6 +168,20 @@ export default function TaskDetail({
               </button>
             )}
           </div>
+
+          {teams && teams.length > 0 && (
+            <div className="field">
+              <label>Équipe</label>
+              <select value={task.team?._id || ''} onChange={(e) => field('team', e.target.value || null)}>
+                <option value="">— Aucune —</option>
+                {teams.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {SIDE_DIMENSIONS.map(({ field: f, kind, label }) => {
             const items = taxonomiesByKind(taxonomies, kind);

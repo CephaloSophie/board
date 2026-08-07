@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useProject, useUpdateProject } from '../../api/projects';
 import { useTaxonomies, taxonomiesByKind } from '../../api/taxonomies';
 import { useAuth } from '../../context/AuthContext';
+import { isManager } from '../../utils/roles';
 
 export default function ProjectSettings({ projectKey }: { projectKey: string }) {
   const { user } = useAuth();
@@ -28,7 +29,7 @@ export default function ProjectSettings({ projectKey }: { projectKey: string }) 
   }, [project?._id]);
 
   if (!project) return <div className="loadbox">Chargement…</div>;
-  const canEdit = user?.role === 'superadmin';
+  const canEdit = isManager(user?.role);
   const sprints = taxonomiesByKind(taxonomies, 'sprint');
 
   return (

@@ -1,6 +1,19 @@
 const { Schema, model } = require('mongoose');
 
-const ROLES = ['superadmin', 'developer'];
+// Agile team roles. `superadmin` is the platform owner; the others map to
+// real Scrum/agile hats. Management actions (projects, taxonomies, teams)
+// are allowed for MANAGER_ROLES; user administration stays superadmin-only.
+const ROLES = [
+  'superadmin',
+  'project_manager',
+  'product_owner',
+  'scrum_master',
+  'team_lead',
+  'developer',
+  'qa',
+];
+
+const MANAGER_ROLES = ['superadmin', 'project_manager', 'scrum_master', 'product_owner', 'team_lead'];
 
 const userSchema = new Schema(
   {
@@ -28,4 +41,4 @@ userSchema.methods.toPublic = function toPublic() {
   };
 };
 
-module.exports = { User: model('User', userSchema), ROLES };
+module.exports = { User: model('User', userSchema), ROLES, MANAGER_ROLES };

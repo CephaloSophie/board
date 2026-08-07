@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useProjects } from '../../api/projects';
 import Avatar from '../common/Avatar';
+import { roleLabel } from '../../utils/roles';
 import type { Theme } from '../../types';
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -28,6 +29,7 @@ export default function Header() {
   const navItems = projectKey
     ? [
         { to: `/projects/${projectKey}/board`, label: 'Board', active: section === 'board' || section === 'tasks' },
+        { to: `/projects/${projectKey}/dashboard`, label: 'Dashboard', active: section === 'dashboard' },
         { to: `/projects/${projectKey}/events`, label: 'Rituels', active: section === 'events' },
         { to: `/projects/${projectKey}/admin`, label: 'Administration', active: section === 'admin' },
       ]
@@ -82,7 +84,7 @@ export default function Header() {
           <div className="user-chip">
             <Avatar name={user.displayName} color={user.color} size="sm" />
             <span>{user.displayName}</span>
-            <span className="badge-role">{user.role === 'superadmin' ? 'super admin' : 'dev'}</span>
+            <span className="badge-role">{roleLabel(user.role)}</span>
             <button className="btn ghost small" onClick={logout}>
               Déconnexion
             </button>

@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { Project } = require('../models/Project');
 const { Taxonomy, KINDS } = require('../models/Taxonomy');
 const { Task } = require('../models/Task');
+const { MANAGER_ROLES } = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadProject } = require('../middleware/project');
 
@@ -49,7 +50,7 @@ router.get('/', async (req, res) => {
   res.json({ projects });
 });
 
-router.post('/', requireRole('superadmin'), async (req, res) => {
+router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
   const { key, name, vendor, description, currentVersion } = req.body || {};
   if (!key || !name) return res.status(400).json({ error: 'key et name sont requis.' });
   const normalizedKey = String(key).toUpperCase().trim();
@@ -80,7 +81,7 @@ router.get('/:projectKey', loadProject, async (req, res) => {
   res.json({ project: req.project });
 });
 
-router.patch('/:projectKey', loadProject, requireRole('superadmin'), async (req, res) => {
+router.patch('/:projectKey', loadProject, requireRole(...MANAGER_ROLES), async (req, res) => {
   const {
     name,
     vendor,
