@@ -80,12 +80,26 @@ export type EventFeature =
   | 'participants'
   | 'backlog'
   | 'estimation'
+  | 'poker'
   | 'agenda'
   | 'decisions'
   | 'actions'
   | 'adr'
   | 'demo'
   | 'notes';
+
+export type GroupKind = 'group' | 'tag';
+
+export interface UserGroup {
+  _id: string;
+  project: string;
+  name: string;
+  kind: GroupKind;
+  color: string;
+  members: UserRef[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface EventTypeMeta {
   icon?: string;

@@ -28,6 +28,7 @@ const ALL_FEATURES: { key: EventFeature; label: string }[] = [
   { key: 'participants', label: 'Participants' },
   { key: 'backlog', label: 'Tâches liées' },
   { key: 'estimation', label: 'Estimation' },
+  { key: 'poker', label: 'Planning Poker' },
   { key: 'agenda', label: 'Ordre du jour' },
   { key: 'decisions', label: 'Décisions' },
   { key: 'actions', label: "Actions à suivre" },

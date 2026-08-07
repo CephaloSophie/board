@@ -8,6 +8,7 @@ import { useUsers } from '../../api/users';
 import { eventTypeMeta, EVENT_STATUS_META } from './eventConfig';
 import UserMultiSelect, { idOf } from '../common/UserMultiSelect';
 import Avatar from '../common/Avatar';
+import PokerPanel from './PokerPanel';
 
 const FIBO = [1, 2, 3, 5, 8, 13];
 
@@ -218,6 +219,8 @@ export default function EventDetail({
           )}
         </div>
       )}
+
+      {has('poker') && <PokerPanel projectKey={projectKey} event={event} />}
 
       {has('agenda') && (
         <div className="event-card-section">

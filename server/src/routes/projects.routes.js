@@ -36,9 +36,9 @@ const DEFAULT_TAXONOMIES = {
   version: [{ key: '0.1.0', label: '0.1.0', order: 0 }],
   sprint: [{ key: 'backlog', label: 'Backlog', order: 0 }],
   eventType: [
-    { key: 'refinement', label: 'Refinement', color: '#6b78ea', order: 0, meta: { icon: '🔍', features: ['participants', 'backlog', 'estimation', 'agenda', 'actions', 'decisions'] } },
-    { key: 'grooming', label: 'Grooming', color: '#7ecb98', order: 1, meta: { icon: '🌱', features: ['participants', 'backlog', 'estimation', 'agenda'] } },
-    { key: 'technical', label: 'Point technique', color: '#e6c46a', order: 2, meta: { icon: '🛠️', features: ['participants', 'agenda', 'decisions', 'actions', 'backlog'] } },
+    { key: 'refinement', label: 'Refinement', color: '#6b78ea', order: 0, meta: { icon: '🔍', features: ['participants', 'backlog', 'estimation', 'poker', 'agenda', 'actions', 'decisions'] } },
+    { key: 'grooming', label: 'Grooming', color: '#7ecb98', order: 1, meta: { icon: '🌱', features: ['participants', 'backlog', 'estimation', 'poker', 'agenda'] } },
+    { key: 'technical', label: 'Point technique', color: '#e6c46a', order: 2, meta: { icon: '🛠️', features: ['participants', 'agenda', 'decisions', 'actions', 'backlog', 'poker'] } },
     { key: 'architecture', label: 'Point architecture', color: '#b39ddb', order: 3, meta: { icon: '🏛️', features: ['participants', 'adr', 'decisions', 'actions'] } },
     { key: 'demo_prep', label: 'Préparation démo', color: '#e0a458', order: 4, meta: { icon: '🎬', features: ['participants', 'demo', 'backlog', 'agenda'] } },
     { key: 'retro', label: 'Rétrospective', color: '#e85d70', order: 5, meta: { icon: '🔄', features: ['participants', 'decisions', 'actions', 'notes'] } },

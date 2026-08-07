@@ -7,7 +7,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const port = Number(env.VITE_PORT) || 7001;
   const target = env.VITE_API_PROXY_TARGET || 'http://localhost:7002';
-  const proxy = { '/api': { target, changeOrigin: true } };
+  const proxy = {
+    '/api': { target, changeOrigin: true },
+    // WebSocket endpoint for the realtime Planning Poker.
+    '/ws': { target, ws: true, changeOrigin: true },
+  };
 
   return {
     plugins: [react()],

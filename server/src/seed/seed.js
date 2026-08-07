@@ -14,6 +14,7 @@ const { Taxonomy } = require('../models/Taxonomy');
 const { Task } = require('../models/Task');
 const { Counter } = require('../models/Counter');
 const { Team } = require('../models/Team');
+const { Group } = require('../models/Group');
 const { hashPassword } = require('../utils/password');
 
 const DATA_PATH = path.join(__dirname, '..', '..', '..', 'tasks.json');
@@ -142,9 +143,9 @@ async function run() {
   // Default agile ceremony/event types. meta.features selects which sections
   // the event editor renders; meta.icon is the emoji shown in listings.
   const DEFAULT_EVENT_TYPES = [
-    { key: 'refinement', label: 'Refinement', color: '#6b78ea', icon: '🔍', features: ['participants', 'backlog', 'estimation', 'agenda', 'actions', 'decisions'] },
-    { key: 'grooming', label: 'Grooming', color: '#7ecb98', icon: '🌱', features: ['participants', 'backlog', 'estimation', 'agenda'] },
-    { key: 'technical', label: 'Point technique', color: '#e6c46a', icon: '🛠️', features: ['participants', 'agenda', 'decisions', 'actions', 'backlog'] },
+    { key: 'refinement', label: 'Refinement', color: '#6b78ea', icon: '🔍', features: ['participants', 'backlog', 'estimation', 'poker', 'agenda', 'actions', 'decisions'] },
+    { key: 'grooming', label: 'Grooming', color: '#7ecb98', icon: '🌱', features: ['participants', 'backlog', 'estimation', 'poker', 'agenda'] },
+    { key: 'technical', label: 'Point technique', color: '#e6c46a', icon: '🛠️', features: ['participants', 'agenda', 'decisions', 'actions', 'backlog', 'poker'] },
     { key: 'architecture', label: 'Point architecture', color: '#b39ddb', icon: '🏛️', features: ['participants', 'adr', 'decisions', 'actions'] },
     { key: 'demo_prep', label: 'Préparation démo', color: '#e0a458', icon: '🎬', features: ['participants', 'demo', 'backlog', 'agenda'] },
     { key: 'retro', label: 'Rétrospective', color: '#e85d70', icon: '🔄', features: ['participants', 'decisions', 'actions', 'notes'] },
@@ -267,6 +268,18 @@ async function run() {
         ],
       },
     },
+    { upsert: true }
+  );
+
+  console.log('[seed] Seeding demo groups/tags...');
+  await Group.findOneAndUpdate(
+    { project: project._id, kind: 'group', name: 'Devs' },
+    { $set: { project: project._id, kind: 'group', name: 'Devs', color: '#7ecb98', members: [lead._id, dev._id] } },
+    { upsert: true }
+  );
+  await Group.findOneAndUpdate(
+    { project: project._id, kind: 'tag', name: 'estimateurs' },
+    { $set: { project: project._id, kind: 'tag', name: 'estimateurs', color: '#e6c46a', members: [lead._id, dev._id, qa._id] } },
     { upsert: true }
   );
 

@@ -169,6 +169,18 @@ adaptées.
   en direct, progression et statistiques.
 - **Vue Planning** : colonnes = dimension de regroupement ; glisser une tâche
   la replanifie (change son sprint, sa version, son assigné, etc.).
+- **Planning Poker temps réel** (WebSocket) dans les refinement / grooming /
+  points techniques : un Scrum Master ou PO lance un vote d'estimation sur une
+  tâche, avec un deck configurable (`0.5, 1, 2, 3, 5, 8, 13, ?`), un minuteur
+  en secondes et une liste de votants autorisés (tous les connectés, un
+  groupe, un tag ou une sélection de personnes). Les votes sont **cachés** (on
+  voit seulement qui a voté) jusqu'à ce que le lanceur les **révèle** ; il peut
+  attendre au-delà du minuteur. À la révélation : distribution, consensus /
+  suggestion (médiane), puis le lanceur applique l'estimation finale à la
+  tâche. Les WebSockets ne servent qu'à ce cas temps réel.
+- **Groupes & tags** : regrouper les personnes par groupe ou par tag
+  (création, couleur, membres), réutilisables notamment pour restreindre les
+  votants d'un Planning Poker.
 
 ## Limite connue de cet environnement de build
 
