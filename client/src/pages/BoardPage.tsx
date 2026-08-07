@@ -8,6 +8,8 @@ import Filters from '../components/Board/Filters';
 import GroupedBoard from '../components/Board/GroupedBoard';
 import JiraBoard from '../components/Board/JiraBoard';
 import ListBoard from '../components/Board/ListBoard';
+import PlanningBoard from '../components/Board/PlanningBoard';
+import CurrentSprintHero from '../components/Board/CurrentSprintHero';
 import TaskModal from '../components/Task/TaskModal';
 import NewTaskModal from '../components/Task/NewTaskModal';
 import { EMPTY_FILTERS, type BoardView, type TaskFilters } from '../types';
@@ -17,6 +19,7 @@ import { GROUP_OPTIONS, type GroupByKey } from '../components/Board/groupUtils';
 const VIEWS: { value: BoardView; label: string }[] = [
   { value: 'grouped', label: 'Board' },
   { value: 'jira', label: 'Jira' },
+  { value: 'planning', label: 'Planning' },
   { value: 'list', label: 'Liste' },
 ];
 
@@ -38,6 +41,10 @@ export default function BoardPage() {
 
   function handleDrop(taskId: string, status: string) {
     updateTask.mutate({ taskId, data: { status, note: 'Déplacée par glisser-déposer.' } });
+  }
+
+  function handleReassign(taskId: string, field: string, value: string | null) {
+    updateTask.mutate({ taskId, data: { [field]: value, note: 'Replanifiée par glisser-déposer.' } as any });
   }
 
   const totalPoints = (tasks || []).reduce((a, t) => a + (t.complexity || 0), 0);
@@ -103,6 +110,8 @@ export default function BoardPage() {
         </button>
       </div>
 
+      <CurrentSprintHero projectKey={projectKey} project={project} taxonomies={taxonomies} />
+
       <Filters taxonomies={taxonomies} users={users} filters={filters} onChange={setFilters} />
 
       {isLoading && <div className="loadbox">Chargement des tâches…</div>}
@@ -125,6 +134,16 @@ export default function BoardPage() {
           onDrop={handleDrop}
           groupBy={groupBy}
           currentSprintKey={project?.currentSprint}
+        />
+      )}
+      {!isLoading && tasks && view === 'planning' && (
+        <PlanningBoard
+          tasks={tasks}
+          taxonomies={taxonomies}
+          groupBy={groupBy}
+          currentSprintKey={project?.currentSprint}
+          onOpen={setOpenTaskId}
+          onReassign={handleReassign}
         />
       )}
       {!isLoading && tasks && view === 'list' && (

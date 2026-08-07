@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { EventFeature, SprintMeta, SprintStatus, TaxonomyItem, TaxonomyKind } from '../../types';
 import { useCreateTaxonomy, useDeleteTaxonomy, useTaxonomies, useUpdateTaxonomy, taxonomiesByKind } from '../../api/taxonomies';
-import { useProject } from '../../api/projects';
+import { useProject, useUpdateProject } from '../../api/projects';
 import { useAuth } from '../../context/AuthContext';
 
 const KINDS: { value: TaxonomyKind; label: string }[] = [
@@ -44,6 +44,7 @@ export default function TaxonomyAdmin({ projectKey }: { projectKey: string }) {
   const canEdit = user?.role === 'superadmin';
   const { data: taxonomies } = useTaxonomies(projectKey);
   const { data: project } = useProject(projectKey);
+  const updateProject = useUpdateProject(projectKey);
   const createItem = useCreateTaxonomy(projectKey);
   const updateItem = useUpdateTaxonomy(projectKey);
   const deleteItem = useDeleteTaxonomy(projectKey);
@@ -139,39 +140,52 @@ export default function TaxonomyAdmin({ projectKey }: { projectKey: string }) {
         )}
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              {isEventType && <th>Icône</th>}
-              <th>Clé</th>
-              <th>Libellé</th>
-              <th>Couleur</th>
-              <th>Ordre</th>
-              {isSprint && <th>Statut</th>}
-              {isSprint && <th>Début</th>}
-              {isSprint && <th>Fin</th>}
-              {isSprint && <th>But</th>}
-              {isEventType && <th>Sections</th>}
-              <th>État</th>
-              {canEdit && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <TaxonomyRow
-                key={item._id}
-                item={item}
-                canEdit={canEdit}
-                isSprint={isSprint}
-                isEventType={isEventType}
-                onSave={(data) => updateItem.mutate({ id: item._id, data })}
-                onDelete={() => remove(item)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {isSprint ? (
+        <div className="sprint-cards">
+          {items.map((item) => (
+            <SprintCard
+              key={item._id}
+              item={item}
+              canEdit={canEdit}
+              isCurrent={project?.currentSprint === item.key}
+              onSave={(data) => updateItem.mutate({ id: item._id, data })}
+              onDelete={() => remove(item)}
+              onSetCurrent={() => updateProject.mutate({ currentSprint: item.key })}
+            />
+          ))}
+          {items.length === 0 && <div className="empty">Aucun sprint.</div>}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                {isEventType && <th>Icône</th>}
+                <th>Clé</th>
+                <th>Libellé</th>
+                <th>Couleur</th>
+                <th>Ordre</th>
+                {isEventType && <th>Sections</th>}
+                <th>État</th>
+                {canEdit && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <TaxonomyRow
+                  key={item._id}
+                  item={item}
+                  canEdit={canEdit}
+                  isSprint={false}
+                  isEventType={isEventType}
+                  onSave={(data) => updateItem.mutate({ id: item._id, data })}
+                  onDelete={() => remove(item)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {canEdit && (
         <>
@@ -350,5 +364,115 @@ function TaxonomyRow({
         </button>
       </td>
     </tr>
+  );
+}
+
+function SprintCard({
+  item,
+  canEdit,
+  isCurrent,
+  onSave,
+  onDelete,
+  onSetCurrent,
+}: {
+  item: TaxonomyItem;
+  canEdit: boolean;
+  isCurrent: boolean;
+  onSave: (data: Partial<TaxonomyItem>) => void;
+  onDelete: () => void;
+  onSetCurrent: () => void;
+}) {
+  const meta = (item.meta || {}) as SprintMeta;
+  const [label, setLabel] = useState(item.label);
+  const [status, setStatus] = useState<SprintStatus>((meta.status as SprintStatus) || 'draft');
+  const [startDate, setStartDate] = useState(meta.startDate ? meta.startDate.slice(0, 10) : '');
+  const [endDate, setEndDate] = useState(meta.endDate ? meta.endDate.slice(0, 10) : '');
+  const [goal, setGoal] = useState(meta.goal || '');
+  const sm = SPRINT_STATUS_META[status] || SPRINT_STATUS_META.draft;
+
+  const dirty =
+    label !== item.label ||
+    status !== (meta.status || 'draft') ||
+    startDate !== (meta.startDate ? meta.startDate.slice(0, 10) : '') ||
+    endDate !== (meta.endDate ? meta.endDate.slice(0, 10) : '') ||
+    goal !== (meta.goal || '');
+
+  function save() {
+    onSave({
+      label,
+      meta: {
+        ...meta,
+        status,
+        startDate: startDate ? new Date(startDate).toISOString() : undefined,
+        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+        goal,
+      },
+    });
+  }
+
+  return (
+    <div className={`sprint-adm-card${isCurrent ? ' current' : ''}`} style={{ borderLeftColor: sm.color, opacity: item.archived ? 0.6 : 1 }}>
+      <div className="sprint-adm-card__head">
+        <span className="sprint-adm-card__title">{item.label}</span>
+        {isCurrent && <span className="sprint-adm-card__star current-pill">★ COURANT</span>}
+      </div>
+      <div className="sprint-adm-card__row">
+        <span className="tag" style={{ borderColor: sm.color, color: sm.color }}>{sm.label}</span>
+        <span className="tag" style={{ fontFamily: 'var(--mono)' }}>{item.key}</span>
+        {item.archived && <span className="tag">archivé</span>}
+      </div>
+
+      {!canEdit ? (
+        <>
+          <div className="sprint-adm-card__row" style={{ fontSize: 12, color: 'var(--soft)' }}>
+            {startDate || '—'} → {endDate || '—'}
+          </div>
+          {goal && <div style={{ fontSize: 12.5, color: 'var(--soft)', marginTop: 6 }}>🎯 {goal}</div>}
+        </>
+      ) : (
+        <>
+          <div className="sprint-adm-card__field">
+            <label>Libellé</label>
+            <input value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div className="sprint-adm-card__field">
+            <label>Statut</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as SprintStatus)}>
+              <option value="draft">Brouillon</option>
+              <option value="ready">Prêt</option>
+              <option value="active">Actif</option>
+              <option value="finished">Terminé</option>
+            </select>
+          </div>
+          <div className="sprint-adm-card__row">
+            <div className="sprint-adm-card__field" style={{ flex: 1 }}>
+              <label>Début</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="sprint-adm-card__field" style={{ flex: 1 }}>
+              <label>Fin</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="sprint-adm-card__field">
+            <label>Objectif</label>
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Objectif du sprint" />
+          </div>
+
+          <div className="sprint-adm-card__actions">
+            <button className="btn primary small" disabled={!dirty} onClick={save}>Enregistrer</button>
+            {!isCurrent && (
+              <button className="btn small" onClick={onSetCurrent} title="Marquer ce sprint comme sprint courant du projet">
+                ★ Définir comme sprint actuel
+              </button>
+            )}
+            <button className="btn small" onClick={() => onSave({ archived: !item.archived })}>
+              {item.archived ? 'Réactiver' : 'Archiver'}
+            </button>
+            <button className="btn danger small" onClick={onDelete}>Suppr.</button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

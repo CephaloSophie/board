@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ActionItem, ProjectEvent, TaxonomyItem, EventStatus } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
 import { useUpdateEvent, useDeleteEvent, useUnlinkTaskFromEvent } from '../../api/events';
+import { useUpdateTask } from '../../api/tasks';
 import { useUsers } from '../../api/users';
 import { eventTypeMeta, EVENT_STATUS_META } from './eventConfig';
 import UserMultiSelect, { idOf } from '../common/UserMultiSelect';
 import Avatar from '../common/Avatar';
+
+const FIBO = [1, 2, 3, 5, 8, 13];
 
 export default function EventDetail({
   projectKey,
@@ -22,8 +26,24 @@ export default function EventDetail({
   const updateEvent = useUpdateEvent(projectKey);
   const deleteEvent = useDeleteEvent(projectKey);
   const unlink = useUnlinkTaskFromEvent(projectKey);
+  const updateTask = useUpdateTask(projectKey);
+  const qc = useQueryClient();
   const type = eventTypeMeta(taxonomies, event.type);
   const sprints = taxonomiesByKind(taxonomies, 'sprint');
+
+  // Inline estimation from a refinement/grooming: set a task's points, then
+  // refresh the event so the embedded snapshot shows the new value.
+  function estimate(taskId: string, points: number) {
+    updateTask.mutate(
+      { taskId, data: { complexity: points } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: ['event', projectKey, event._id] });
+          qc.invalidateQueries({ queryKey: ['events', projectKey] });
+        },
+      }
+    );
+  }
 
   const [title, setTitle] = useState(event.title);
   const [agenda, setAgenda] = useState(event.agenda);
@@ -53,25 +73,44 @@ export default function EventDetail({
 
   const has = (f: string) => type.features.includes(f as never);
 
+  const estimatedCount = event.tasks.filter((l) => (typeof l.task === 'object' ? l.task.complexity : 0)).length;
+  const totalPoints = event.tasks.reduce((a, l) => a + (typeof l.task === 'object' ? l.task.complexity || 0 : 0), 0);
+
   return (
-    <div>
-      <div className="modal-head">
-        <div style={{ flex: 1 }}>
-          <div className="m-id">
-            <span style={{ fontSize: 16 }}>{type.icon}</span> {type.label}
+    <div style={{ ['--evt' as string]: type.color } as CSSProperties}>
+      <div className="event-hero">
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div className="event-hero__type">
+            <span style={{ fontSize: 18 }}>{type.icon}</span> {type.label}
           </div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => title !== event.title && patch({ title })}
-            style={{ fontSize: 17, fontWeight: 700, width: '100%', marginTop: 4 }}
-          />
+          {onClose && (
+            <button className="close-btn" onClick={onClose}>
+              Fermer ✕
+            </button>
+          )}
         </div>
-        {onClose && (
-          <button className="close-btn" onClick={onClose}>
-            Fermer ✕
-          </button>
-        )}
+        <input
+          className="event-hero__title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => title !== event.title && patch({ title })}
+          placeholder="Titre de l'événement"
+        />
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="event-status" style={{ background: `${EVENT_STATUS_META[event.status].color}22`, color: EVENT_STATUS_META[event.status].color }}>
+            {EVENT_STATUS_META[event.status].label}
+          </span>
+          {event.participants.length > 0 && (
+            <span className="event-avatars">
+              {event.participants.slice(0, 6).map((p) => (
+                <Avatar key={p._id} name={p.displayName} color={p.color} size="sm" />
+              ))}
+            </span>
+          )}
+          {has('backlog') && event.tasks.length > 0 && (
+            <span className="tag pts">{totalPoints} pts · {event.tasks.length} tâches</span>
+          )}
+        </div>
       </div>
 
       <div className="field-grid">
@@ -116,41 +155,79 @@ export default function EventDetail({
       </div>
 
       {has('participants') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Participants</h4>
           <UserMultiSelect users={users} selectedIds={event.participants.map((p) => p._id)} onToggle={toggleParticipant} />
         </div>
       )}
 
       {has('backlog') && (
-        <div className="event-section">
-          <h4>Tâches liées {has('estimation') && '(à estimer)'}</h4>
-          {event.tasks.map((link) => {
-            const t = typeof link.task === 'object' ? link.task : null;
-            return (
-              <div className="linked-task" key={link._id}>
-                <span className="taskid">{t?.taskId || link.taskId}</span>
-                <span style={{ flex: 1, fontSize: 12.5 }}>{t?.title || '—'}</span>
-                {t?.complexity != null && <span className="tag pts">{t.complexity} pts</span>}
-                <button className="btn danger small" onClick={() => unlink.mutate({ eventId: event._id, linkId: link._id })}>
-                  Retirer
-                </button>
-              </div>
-            );
-          })}
-          {event.tasks.length === 0 && <div className="text-muted" style={{ fontSize: 12 }}>Aucune tâche liée. Utilisez l'icône ⊕ sur une carte de tâche pour l'ajouter ici.</div>}
+        <div className="event-card-section">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <h4 style={{ margin: 0 }}>Backlog {has('estimation') ? 'à affiner / estimer' : 'lié'}</h4>
+            {has('estimation') && event.tasks.length > 0 && (
+              <span className="text-muted" style={{ fontSize: 11 }}>
+                {estimatedCount}/{event.tasks.length} estimées · {totalPoints} pts
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {event.tasks.map((link) => {
+              const t = typeof link.task === 'object' ? link.task : null;
+              const pts = t?.complexity || 0;
+              if (!has('estimation')) {
+                return (
+                  <div className="linked-task" key={link._id}>
+                    <span className="taskid">{t?.taskId || link.taskId}</span>
+                    <span style={{ flex: 1, fontSize: 12.5 }}>{t?.title || '—'}</span>
+                    {t?.complexity != null && <span className="tag pts">{pts} pts</span>}
+                    <button className="btn danger small" onClick={() => unlink.mutate({ eventId: event._id, linkId: link._id })}>
+                      Retirer
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <div className="est-task" key={link._id}>
+                  <span className="est-task__id">{t?.taskId || link.taskId}</span>
+                  <span className="est-task__title" title={t?.title}>{t?.title || '—'}</span>
+                  <div className="row" style={{ gap: 3 }}>
+                    {FIBO.map((n) => (
+                      <button
+                        key={n}
+                        className={`btn small${pts === n ? ' primary' : ''}`}
+                        style={{ padding: '3px 8px' }}
+                        onClick={() => t && estimate(t.taskId, n)}
+                        title={`${n} points`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="icon-btn" title="Retirer" onClick={() => unlink.mutate({ eventId: event._id, linkId: link._id })}>
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {event.tasks.length === 0 && (
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Aucune tâche liée. Utilisez l'icône ⊕ sur une carte de tâche pour l'ajouter ici.
+            </div>
+          )}
         </div>
       )}
 
       {has('agenda') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Ordre du jour</h4>
           <textarea rows={4} value={agenda} onChange={(e) => setAgenda(e.target.value)} onBlur={() => agenda !== event.agenda && patch({ agenda })} style={{ width: '100%' }} />
         </div>
       )}
 
       {has('adr') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Décision d'architecture (ADR)</h4>
           <div className="stack">
             {(['context', 'decision', 'alternatives', 'consequences'] as const).map((f) => (
@@ -169,7 +246,7 @@ export default function EventDetail({
       )}
 
       {has('demo') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Ordre de passage démo</h4>
           {event.tasks
             .slice()
@@ -190,7 +267,7 @@ export default function EventDetail({
       )}
 
       {has('decisions') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Décisions</h4>
           <ListEditor
             items={decisions}
@@ -204,7 +281,7 @@ export default function EventDetail({
       )}
 
       {has('actions') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Actions à suivre</h4>
           <ActionEditor
             actions={actions}
@@ -218,13 +295,13 @@ export default function EventDetail({
       )}
 
       {has('notes') && (
-        <div className="event-section">
+        <div className="event-card-section">
           <h4>Notes</h4>
           <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== event.notes && patch({ notes })} style={{ width: '100%' }} />
         </div>
       )}
 
-      <div className="event-section">
+      <div className="event-card-section">
         <button
           className="btn danger small"
           onClick={() => {

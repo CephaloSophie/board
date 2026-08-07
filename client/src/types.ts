@@ -174,7 +174,7 @@ export interface Task {
 }
 
 export type Theme = 'dark' | 'light' | 'ubuntu' | 'mac';
-export type BoardView = 'grouped' | 'list' | 'jira';
+export type BoardView = 'grouped' | 'list' | 'jira' | 'planning';
 
 export interface TaskFilters {
   status: string[];
