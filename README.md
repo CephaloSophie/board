@@ -181,6 +181,22 @@ adaptées.
 - **Groupes & tags** : regrouper les personnes par groupe ou par tag
   (création, couleur, membres), réutilisables notamment pour restreindre les
   votants d'un Planning Poker.
+- **Estimateurs paramétrables** (poker) : tous les connectés, **par rôle**
+  (ex. tous les développeurs, tous les PO…), **par équipe**, par groupe, par
+  tag, ou une sélection de personnes.
+- **Rôles par projet** : chaque personne peut avoir un rôle propre au projet
+  (Administration → Membres & rôles) qui prime sur son rôle global.
+- **Rétrospective interactive temps réel** (WebSocket), **par sprint et par
+  équipe**, animée par le PO/Scrum Master (animateur délégable). Déroulé :
+  préparation (invités, absences, rappel des objectifs de la rétro
+  précédente) → note du sprint (cachée puis révélée : moyenne + notes) →
+  Start / Stop / Continue (post-its privés, minuteur réglable et prolongeable,
+  puis tour de parole aléatoire avec passage de main) → vote des propositions
+  (budget de points paramétrable : points par personne, min/max par
+  proposition) → sélection des objectifs (top N) qui deviennent les objectifs
+  du prochain sprint → clôture (note de la rétro). Les objectifs sont
+  sauvegardés et rappelés à la rétro suivante.
+- **Champs de formulaire** à libellé flottant (design plus soigné).
 
 ## Limite connue de cet environnement de build
 

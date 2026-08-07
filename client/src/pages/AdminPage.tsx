@@ -6,9 +6,10 @@ import TaxonomyAdmin from '../components/Admin/TaxonomyAdmin';
 import UsersAdmin from '../components/Admin/UsersAdmin';
 import TeamsAdmin from '../components/Admin/TeamsAdmin';
 import GroupsAdmin from '../components/Admin/GroupsAdmin';
+import MembersAdmin from '../components/Admin/MembersAdmin';
 import ProjectSettings from '../components/Admin/ProjectSettings';
 
-type Tab = 'taxonomies' | 'teams' | 'groups' | 'users' | 'project';
+type Tab = 'taxonomies' | 'teams' | 'groups' | 'members' | 'users' | 'project';
 
 export default function AdminPage() {
   const { projectKey } = useParams();
@@ -28,6 +29,9 @@ export default function AdminPage() {
         <button className={tab === 'groups' ? 'active' : ''} onClick={() => setTab('groups')}>
           Groupes &amp; tags
         </button>
+        <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>
+          Membres &amp; rôles
+        </button>
         {isSuperadmin(user?.role) && (
           <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
             Utilisateurs
@@ -41,6 +45,7 @@ export default function AdminPage() {
         {tab === 'taxonomies' && <TaxonomyAdmin projectKey={projectKey} />}
         {tab === 'teams' && <TeamsAdmin projectKey={projectKey} />}
         {tab === 'groups' && <GroupsAdmin projectKey={projectKey} />}
+        {tab === 'members' && <MembersAdmin projectKey={projectKey} />}
         {tab === 'users' && isSuperadmin(user?.role) && <UsersAdmin />}
         {tab === 'project' && <ProjectSettings projectKey={projectKey} />}
       </div>

@@ -3,8 +3,9 @@ const { Project } = require('../models/Project');
 const { Taxonomy, KINDS } = require('../models/Taxonomy');
 const { Task } = require('../models/Task');
 const { MANAGER_ROLES } = require('../models/User');
+const { ProjectMember } = require('../models/ProjectMember');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const { loadProject, requireProjectManager } = require('../middleware/project');
 
 const router = Router();
 router.use(requireAuth);
@@ -81,7 +82,7 @@ router.get('/:projectKey', loadProject, async (req, res) => {
   res.json({ project: req.project });
 });
 
-router.patch('/:projectKey', loadProject, requireRole(...MANAGER_ROLES), async (req, res) => {
+router.patch('/:projectKey', loadProject, requireProjectManager, async (req, res) => {
   const {
     name,
     vendor,
@@ -104,6 +105,28 @@ router.patch('/:projectKey', loadProject, requireRole(...MANAGER_ROLES), async (
   if (archived !== undefined) req.project.archived = archived;
   await req.project.save();
   res.json({ project: req.project });
+});
+
+// ---- Per-project role assignments ----
+router.get('/:projectKey/members', loadProject, async (req, res) => {
+  const members = await ProjectMember.find({ project: req.project._id }).populate('user', 'username displayName color role');
+  res.json({ members, myRole: req.projectRole });
+});
+
+router.put('/:projectKey/members/:userId', loadProject, requireProjectManager, async (req, res) => {
+  const { role } = req.body || {};
+  if (!role) return res.status(400).json({ error: 'role requis.' });
+  const member = await ProjectMember.findOneAndUpdate(
+    { project: req.project._id, user: req.params.userId },
+    { $set: { role } },
+    { new: true, upsert: true }
+  ).populate('user', 'username displayName color role');
+  res.json({ member });
+});
+
+router.delete('/:projectKey/members/:userId', loadProject, requireProjectManager, async (req, res) => {
+  await ProjectMember.deleteOne({ project: req.project._id, user: req.params.userId });
+  res.json({ ok: true });
 });
 
 router.get('/:projectKey/stats', loadProject, async (req, res) => {

@@ -6,6 +6,7 @@ const fs = require('fs');
 const { connectDb } = require('./db');
 const { port, clientOrigin } = require('./config');
 const { initPoker } = require('./realtime/poker');
+const { initRetro } = require('./realtime/retro');
 
 const authRoutes = require('./routes/auth.routes');
 const usersRoutes = require('./routes/users.routes');
@@ -15,6 +16,7 @@ const tasksRoutes = require('./routes/tasks.routes');
 const eventsRoutes = require('./routes/events.routes');
 const teamsRoutes = require('./routes/teams.routes');
 const groupsRoutes = require('./routes/groups.routes');
+const retrosRoutes = require('./routes/retros.routes');
 
 const app = express();
 app.use(cors({ origin: clientOrigin === '*' ? true : clientOrigin.split(','), credentials: true }));
@@ -30,6 +32,7 @@ app.use('/api/projects/:projectKey/tasks', tasksRoutes);
 app.use('/api/projects/:projectKey/events', eventsRoutes);
 app.use('/api/projects/:projectKey/teams', teamsRoutes);
 app.use('/api/projects/:projectKey/groups', groupsRoutes);
+app.use('/api/projects/:projectKey/retros', retrosRoutes);
 
 // Serve the built SPA in production, if present.
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
@@ -47,8 +50,9 @@ app.use((err, req, res, next) => {
 });
 
 const server = http.createServer(app);
-// WebSockets are used ONLY for the realtime Planning Poker feature.
+// WebSockets are used ONLY for the realtime ceremonies (Planning Poker + Retro).
 initPoker(server);
+initRetro(server);
 
 async function main() {
   await connectDb();

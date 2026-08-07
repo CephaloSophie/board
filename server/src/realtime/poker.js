@@ -18,7 +18,9 @@ const { verifyToken } = require('../utils/jwt');
 const { User, MANAGER_ROLES } = require('../models/User');
 const { Event } = require('../models/Event');
 const { Group } = require('../models/Group');
+const { Team } = require('../models/Team');
 const { Task } = require('../models/Task');
+const { ProjectMember } = require('../models/ProjectMember');
 const { applyPatchWithHistory } = require('../utils/taskHistory');
 
 // roomId (eventId) -> { clients: Set<ws>, session: null | {...} }
@@ -99,14 +101,34 @@ function broadcastPresence(room) {
 }
 
 async function resolveAllowed(projectId, allow) {
-  // Returns a Set of allowed userIds, or null for "everyone".
+  // Returns a Set of allowed userIds, or null for "everyone connected".
   if (!allow || allow.mode === 'all') return null;
-  if (allow.mode === 'users') return new Set((allow.ids || []).map(String));
+  const ids = allow.ids || [];
+  if (allow.mode === 'users') return new Set(ids.map(String));
   if (allow.mode === 'group' || allow.mode === 'tag') {
-    const groups = await Group.find({ _id: { $in: allow.ids || [] }, project: projectId });
-    const ids = new Set();
-    for (const g of groups) for (const m of g.members) ids.add(String(m));
-    return ids;
+    const groups = await Group.find({ _id: { $in: ids }, project: projectId });
+    const set = new Set();
+    for (const g of groups) for (const m of g.members) set.add(String(m));
+    return set;
+  }
+  if (allow.mode === 'team') {
+    const teams = await Team.find({ _id: { $in: ids }, project: projectId });
+    const set = new Set();
+    for (const t of teams) for (const m of t.members) set.add(String(m.user));
+    return set;
+  }
+  if (allow.mode === 'role') {
+    // Everyone whose *effective* project role is one of the selected roles.
+    const roleSet = new Set(ids);
+    const overrides = await ProjectMember.find({ project: projectId });
+    const overrideMap = new Map(overrides.map((o) => [String(o.user), o.role]));
+    const users = await User.find({ active: true }, '_id role');
+    const set = new Set();
+    for (const u of users) {
+      const eff = u.role === 'superadmin' ? 'superadmin' : overrideMap.get(String(u._id)) || u.role;
+      if (roleSet.has(eff)) set.add(String(u._id));
+    }
+    return set;
   }
   return null;
 }
@@ -122,7 +144,7 @@ async function handleMessage(ws, room, data) {
       // Only managers (SM/PO/lead/PM/superadmin) may launch a vote.
       if (!isManager(user.role)) return send(ws, { type: 'error', message: "Seul un manager (SM/PO…) peut lancer un vote." });
       const deck = Array.isArray(data.deck) && data.deck.length ? data.deck.map(String) : ['0.5', '1', '2', '3', '5', '8', '13', '?'];
-      const allow = data.allow && ['all', 'group', 'tag', 'users'].includes(data.allow.mode)
+      const allow = data.allow && ['all', 'group', 'tag', 'users', 'team', 'role'].includes(data.allow.mode)
         ? { mode: data.allow.mode, ids: data.allow.ids || [] }
         : { mode: 'all', ids: [] };
       const allowedUserIds = await resolveAllowed(ws.projectId, allow);
@@ -210,7 +232,11 @@ function initPoker(server) {
       const event = await Event.findById(eventId);
       if (!event) return ws.close(4004, 'event not found');
 
-      ws.user = { id: dbUser._id.toString(), _id: dbUser._id, displayName: dbUser.displayName, color: dbUser.color, role: dbUser.role };
+      // Effective role in this project (override wins, except superadmin).
+      const pm = await ProjectMember.findOne({ project: event.project, user: dbUser._id });
+      const effectiveRole = dbUser.role === 'superadmin' ? 'superadmin' : (pm ? pm.role : dbUser.role);
+
+      ws.user = { id: dbUser._id.toString(), _id: dbUser._id, displayName: dbUser.displayName, color: dbUser.color, role: effectiveRole };
       ws.projectId = event.project;
       ws.roomId = eventId;
       const room = getRoom(eventId);

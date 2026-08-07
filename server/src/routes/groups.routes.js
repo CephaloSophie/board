@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { Group, GROUP_KINDS } = require('../models/Group');
 const { MANAGER_ROLES } = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const { loadProject, requireProjectManager } = require('../middleware/project');
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, loadProject);
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
   res.json({ groups });
 });
 
-router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.post('/', requireProjectManager, async (req, res) => {
   const { name, kind, color, members } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Le nom est requis.' });
   if (kind && !GROUP_KINDS.includes(kind)) return res.status(400).json({ error: 'kind invalide.' });
@@ -33,7 +33,7 @@ router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.status(201).json({ group: populated });
 });
 
-router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.patch('/:id', requireProjectManager, async (req, res) => {
   const group = await Group.findOne({ _id: req.params.id, project: req.project._id });
   if (!group) return res.status(404).json({ error: 'Introuvable.' });
   const { name, color, members } = req.body || {};
@@ -45,7 +45,7 @@ router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.json({ group: populated });
 });
 
-router.delete('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.delete('/:id', requireProjectManager, async (req, res) => {
   const result = await Group.deleteOne({ _id: req.params.id, project: req.project._id });
   if (!result.deletedCount) return res.status(404).json({ error: 'Introuvable.' });
   res.json({ ok: true });

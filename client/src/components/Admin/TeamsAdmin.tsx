@@ -5,6 +5,7 @@ import { useUsers } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import { isManager, TEAM_ROLE_LABELS, TEAM_ROLE_ORDER } from '../../utils/roles';
 import Avatar from '../common/Avatar';
+import { TextField } from '../common/Field';
 
 function idOf(u: TeamMember['user']): string {
   return typeof u === 'object' ? u._id : u;
@@ -31,7 +32,9 @@ export default function TeamsAdmin({ projectKey }: { projectKey: string }) {
 
       {canEdit && (
         <div className="form-row">
-          <input placeholder="Nom de l'équipe" value={name} onChange={(e) => setName(e.target.value)} style={{ width: 220 }} />
+          <div style={{ width: 240 }}>
+            <TextField label="Nom de l'équipe" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44 }} />
           <button
             className="btn primary small"

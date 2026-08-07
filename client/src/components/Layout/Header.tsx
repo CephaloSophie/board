@@ -31,6 +31,7 @@ export default function Header() {
         { to: `/projects/${projectKey}/board`, label: 'Board', active: section === 'board' || section === 'tasks' },
         { to: `/projects/${projectKey}/dashboard`, label: 'Dashboard', active: section === 'dashboard' },
         { to: `/projects/${projectKey}/events`, label: 'Rituels', active: section === 'events' },
+        { to: `/projects/${projectKey}/retros`, label: 'Rétros', active: section === 'retros' },
         { to: `/projects/${projectKey}/admin`, label: 'Administration', active: section === 'admin' },
       ]
     : [];

@@ -4,7 +4,7 @@ const { Task } = require('../models/Task');
 const { Event } = require('../models/Event');
 const { MANAGER_ROLES } = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const { loadProject, requireProjectManager } = require('../middleware/project');
 
 // mergeParams so :projectKey from the parent mount is visible here.
 const router = Router({ mergeParams: true });
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
   res.json({ taxonomies: items });
 });
 
-router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.post('/', requireProjectManager, async (req, res) => {
   const { kind, key, label, color, description, order, meta } = req.body || {};
   if (!kind || !KINDS.includes(kind)) {
     return res.status(400).json({ error: `kind invalide (attendu: ${KINDS.join(', ')}).` });
@@ -40,7 +40,7 @@ router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.status(201).json({ taxonomy: item });
 });
 
-router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.patch('/:id', requireProjectManager, async (req, res) => {
   const item = await Taxonomy.findOne({ _id: req.params.id, project: req.project._id });
   if (!item) return res.status(404).json({ error: 'Élément introuvable.' });
 
@@ -55,7 +55,7 @@ router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.json({ taxonomy: item });
 });
 
-router.delete('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.delete('/:id', requireProjectManager, async (req, res) => {
   const item = await Taxonomy.findOne({ _id: req.params.id, project: req.project._id });
   if (!item) return res.status(404).json({ error: 'Élément introuvable.' });
 

@@ -5,6 +5,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import BoardPage from './pages/BoardPage';
 import TaskPage from './pages/TaskPage';
 import EventsPage from './pages/EventsPage';
+import RetroPage from './pages/RetroPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
 import Layout from './components/Layout/Layout';
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/projects/:projectKey/board" element={<BoardPage />} />
                 <Route path="/projects/:projectKey/dashboard" element={<DashboardPage />} />
                 <Route path="/projects/:projectKey/events" element={<EventsPage />} />
+                <Route path="/projects/:projectKey/retros" element={<RetroPage />} />
                 <Route path="/projects/:projectKey/tasks/:taskId" element={<TaskPage />} />
                 <Route path="/projects/:projectKey/admin" element={<AdminPage />} />
                 <Route path="*" element={<Navigate to="/projects" replace />} />

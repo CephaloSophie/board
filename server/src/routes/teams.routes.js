@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { Team } = require('../models/Team');
 const { MANAGER_ROLES } = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const { loadProject, requireProjectManager } = require('../middleware/project');
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, loadProject);
@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
   res.json({ teams });
 });
 
-router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.post('/', requireProjectManager, async (req, res) => {
   const { name, color, description, capacityPoints, members } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Le nom est requis.' });
   const team = await Team.create({
@@ -29,7 +29,7 @@ router.post('/', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.status(201).json({ team: populated });
 });
 
-router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.patch('/:id', requireProjectManager, async (req, res) => {
   const team = await Team.findOne({ _id: req.params.id, project: req.project._id });
   if (!team) return res.status(404).json({ error: 'Équipe introuvable.' });
   const { name, color, description, capacityPoints, members } = req.body || {};
@@ -43,7 +43,7 @@ router.patch('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
   res.json({ team: populated });
 });
 
-router.delete('/:id', requireRole(...MANAGER_ROLES), async (req, res) => {
+router.delete('/:id', requireProjectManager, async (req, res) => {
   const result = await Team.deleteOne({ _id: req.params.id, project: req.project._id });
   if (!result.deletedCount) return res.status(404).json({ error: 'Équipe introuvable.' });
   res.json({ ok: true });

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ProjectEvent } from '../../types';
 import { usePoker } from '../../api/usePoker';
 import { useGroups } from '../../api/groups';
+import { useTeams } from '../../api/teams';
 import { useUsers } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
-import { isManager } from '../../utils/roles';
+import { isManager, ROLE_LABELS, ROLE_ORDER } from '../../utils/roles';
 import Avatar from '../common/Avatar';
 
 const DEFAULT_DECK = ['0.5', '1', '2', '3', '5', '8', '13', '?'];
@@ -52,7 +53,7 @@ export default function PokerPanel({ projectKey, event }: { projectKey: string; 
 
       {!session.active ? (
         canLaunch ? (
-          <LaunchForm event={event} groups={groups} users={users} onStart={startVote} />
+          <LaunchForm projectKey={projectKey} event={event} groups={groups} users={users} onStart={startVote} />
         ) : (
           <div className="text-muted" style={{ fontSize: 12.5 }}>
             Aucun vote en cours. Un Scrum Master ou PO peut en lancer un.
@@ -75,24 +76,29 @@ export default function PokerPanel({ projectKey, event }: { projectKey: string; 
   );
 }
 
+type AllowMode = 'all' | 'group' | 'tag' | 'users' | 'team' | 'role';
+
 function LaunchForm({
+  projectKey,
   event,
   groups,
   users,
   onStart,
 }: {
+  projectKey: string;
   event: ProjectEvent;
   groups: ReturnType<typeof useGroups>['data'];
   users: ReturnType<typeof useUsers>['data'];
-  onStart: (a: { taskId?: string | null; taskTitle?: string; deck: string[]; durationSec: number; allow: { mode: 'all' | 'group' | 'tag' | 'users'; ids: string[] } }) => void;
+  onStart: (a: { taskId?: string | null; taskTitle?: string; deck: string[]; durationSec: number; allow: { mode: AllowMode; ids: string[] } }) => void;
 }) {
   const linked = event.tasks
     .map((l) => (typeof l.task === 'object' ? l.task : null))
     .filter(Boolean) as { _id: string; taskId: string; title: string }[];
+  const { data: teams } = useTeams(projectKey);
   const [taskId, setTaskId] = useState(linked[0]?.taskId || '');
   const [deckStr, setDeckStr] = useState(DEFAULT_DECK.join(', '));
   const [duration, setDuration] = useState(60);
-  const [mode, setMode] = useState<'all' | 'group' | 'tag' | 'users'>('all');
+  const [mode, setMode] = useState<AllowMode>('all');
   const [ids, setIds] = useState<string[]>([]);
 
   const deck = useMemo(() => deckStr.split(',').map((s) => s.trim()).filter(Boolean), [deckStr]);
@@ -133,8 +139,10 @@ function LaunchForm({
         </div>
         <div className="field">
           <label>Qui peut voter ?</label>
-          <select value={mode} onChange={(e) => { setMode(e.target.value as any); setIds([]); }}>
+          <select value={mode} onChange={(e) => { setMode(e.target.value as AllowMode); setIds([]); }}>
             <option value="all">Tous les connectés</option>
+            <option value="role">Par rôle (ex. tous les devs, tous les PO…)</option>
+            <option value="team">Une équipe</option>
             <option value="group">Un groupe</option>
             <option value="tag">Un tag</option>
             <option value="users">Une sélection de personnes</option>
@@ -155,6 +163,32 @@ function LaunchForm({
               ))}
               {groupOptions.length === 0 && <span className="text-muted" style={{ fontSize: 11 }}>Aucun {mode === 'tag' ? 'tag' : 'groupe'} — créez-en dans Administration.</span>}
             </div>
+          </div>
+        )}
+        {mode === 'team' && (
+          <div className="field">
+            <label>Équipe(s)</label>
+            <div className="multi-select-chips">
+              {(teams || []).map((t) => (
+                <span key={t._id} className={`pick-chip ${ids.includes(t._id) ? 'active' : ''}`} onClick={() => setIds((p) => (p.includes(t._id) ? p.filter((x) => x !== t._id) : [...p, t._id]))}>
+                  {t.name}
+                </span>
+              ))}
+              {(teams || []).length === 0 && <span className="text-muted" style={{ fontSize: 11 }}>Aucune équipe.</span>}
+            </div>
+          </div>
+        )}
+        {mode === 'role' && (
+          <div className="field">
+            <label>Rôle(s) autorisé(s)</label>
+            <div className="multi-select-chips">
+              {ROLE_ORDER.filter((r) => r !== 'superadmin').map((r) => (
+                <span key={r} className={`pick-chip ${ids.includes(r) ? 'active' : ''}`} onClick={() => setIds((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]))}>
+                  {ROLE_LABELS[r]}
+                </span>
+              ))}
+            </div>
+            <span className="text-muted" style={{ fontSize: 10.5, marginTop: 4 }}>Un dev n'est pas obligé d'estimer hors de sa techno — combinez avec un tag si besoin.</span>
           </div>
         )}
         {mode === 'users' && (

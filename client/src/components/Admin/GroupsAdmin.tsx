@@ -5,6 +5,7 @@ import { useUsers } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import { isManager } from '../../utils/roles';
 import UserMultiSelect from '../common/UserMultiSelect';
+import { TextField } from '../common/Field';
 
 export default function GroupsAdmin({ projectKey }: { projectKey: string }) {
   const { user } = useAuth();
@@ -42,7 +43,9 @@ export default function GroupsAdmin({ projectKey }: { projectKey: string }) {
             <option value="group">Groupe</option>
             <option value="tag">Tag</option>
           </select>
-          <input placeholder="Nom" value={name} onChange={(e) => setName(e.target.value)} style={{ width: 200 }} />
+          <div style={{ width: 220 }}>
+            <TextField label="Nom" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44 }} />
           <button className="btn primary small" disabled={createGroup.isPending} onClick={add}>
             + Créer

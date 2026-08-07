@@ -17,7 +17,7 @@ export interface PokerSession {
   startedAt?: number;
   launcherId?: string;
   launcherName?: string;
-  allowMode?: 'all' | 'group' | 'tag' | 'users';
+  allowMode?: AllowMode;
   allowedUserIds?: string[] | null;
   voters?: string[];
   revealed?: boolean;
@@ -29,12 +29,14 @@ export interface PokerSession {
   agreement?: boolean;
 }
 
+export type AllowMode = 'all' | 'group' | 'tag' | 'users' | 'team' | 'role';
+
 export interface StartVoteArgs {
   taskId?: string | null;
   taskTitle?: string;
   deck: string[];
   durationSec: number;
-  allow: { mode: 'all' | 'group' | 'tag' | 'users'; ids: string[] };
+  allow: { mode: AllowMode; ids: string[] };
 }
 
 type Status = 'connecting' | 'open' | 'closed';
