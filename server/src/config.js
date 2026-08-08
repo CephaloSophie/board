@@ -7,7 +7,7 @@ module.exports = {
   port: process.env.PORT || 7002,
   mongoUri:
     process.env.MONGODB_URI ||
-    'mongodb://root:toor@127.0.0.1:27017/bordjdddddddira?authSource=admin',
+    'mongodb://root:toor@127.0.0.1:27017/bor0255510a?authSource=admin',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:7001',

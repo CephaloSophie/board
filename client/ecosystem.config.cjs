@@ -37,7 +37,7 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         VITE_PORT: port,
-        VITE_API_PROXY_TARGET: env.VITE_API_PROXY_TARGET || 'http://localhost:7002',
+        VITE_API_PROXY_TARGET: env.VITE_API_PROXY_TARGET || 'http://217.160.186.250:7002',
       },
     },
   ],
