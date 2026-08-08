@@ -254,8 +254,9 @@ async function handle(ws, room, data) {
   await broadcast(room, retro);
 }
 
-function initRetro(server) {
-  const wss = new WebSocketServer({ server, path: '/wsretro' });
+function initRetro() {
+  // noServer: the shared upgrade router in index.js routes /wsretro here.
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', async (ws, req) => {
     try {
@@ -296,7 +297,6 @@ function initRetro(server) {
     }
   });
 
-  console.log('[ws] Retrospective WebSocket ready on /wsretro');
   return wss;
 }
 

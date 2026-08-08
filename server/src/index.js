@@ -50,9 +50,30 @@ app.use((err, req, res, next) => {
 });
 
 const server = http.createServer(app);
+
 // WebSockets are used ONLY for the realtime ceremonies (Planning Poker + Retro).
-initPoker(server);
-initRetro(server);
+// Both WSS run with noServer:true and a SINGLE shared upgrade router below —
+// attaching multiple `ws` servers to one HTTP server (via the `server` option)
+// makes them fight over the 'upgrade' event, which broke /wsretro while /ws
+// worked. Routing by pathname ourselves is the canonical fix.
+const pokerWss = initPoker();
+const retroWss = initRetro();
+server.on('upgrade', (req, socket, head) => {
+  let pathname = '/';
+  try {
+    pathname = new URL(req.url, 'http://localhost').pathname;
+  } catch {
+    /* keep default */
+  }
+  if (pathname === '/ws') {
+    pokerWss.handleUpgrade(req, socket, head, (ws) => pokerWss.emit('connection', ws, req));
+  } else if (pathname === '/wsretro') {
+    retroWss.handleUpgrade(req, socket, head, (ws) => retroWss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
+});
+console.log('[ws] realtime ready: /ws (poker) + /wsretro (retro)');
 
 async function main() {
   await connectDb();

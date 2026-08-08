@@ -217,8 +217,9 @@ async function handleMessage(ws, room, data) {
   }
 }
 
-function initPoker(server) {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+function initPoker() {
+  // noServer: the shared upgrade router in index.js routes /ws to this wss.
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', async (ws, req) => {
     try {
@@ -262,7 +263,6 @@ function initPoker(server) {
     }
   });
 
-  console.log('[ws] Planning Poker WebSocket ready on /ws');
   return wss;
 }
 
