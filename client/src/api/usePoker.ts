@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getToken } from './client';
+import { wsBase } from './wsBase';
 
 export interface PresenceMember {
   id: string;
@@ -57,8 +58,7 @@ export function usePoker(eventId: string | undefined) {
     function connect() {
       const token = getToken();
       if (!token) return;
-      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}&event=${encodeURIComponent(eventId!)}`;
+      const wsUrl = `${wsBase()}/ws?token=${encodeURIComponent(token)}&event=${encodeURIComponent(eventId!)}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       setStatus('connecting');

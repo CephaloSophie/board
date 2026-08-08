@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getToken } from './client';
+import { wsBase } from './wsBase';
 
 export type RetroPhase = 'lobby' | 'rating' | 'ssc' | 'voting' | 'actions' | 'closing' | 'done';
 
@@ -61,8 +62,7 @@ export function useRetro(retroId: string | undefined) {
     function connect() {
       const token = getToken();
       if (!token) return;
-      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${proto}://${window.location.host}/wsretro?token=${encodeURIComponent(token)}&retro=${encodeURIComponent(retroId!)}`;
+      const wsUrl = `${wsBase()}/wsretro?token=${encodeURIComponent(token)}&retro=${encodeURIComponent(retroId!)}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       setStatus('connecting');
