@@ -60,6 +60,7 @@ export default function GroupedBoard({
   onDrop,
   groupBy,
   currentSprintKey,
+  visibleStatuses,
 }: {
   tasks: Task[];
   taxonomies: TaxonomyItem[] | undefined;
@@ -67,6 +68,7 @@ export default function GroupedBoard({
   onDrop: (taskId: string, status: string) => void;
   groupBy: GroupByKey;
   currentSprintKey?: string | null;
+  visibleStatuses?: string[] | null;
 }) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
@@ -115,6 +117,7 @@ export default function GroupedBoard({
               taxonomies={taxonomies}
               onOpen={onOpen}
               currentSprintKey={currentSprintKey}
+              visibleStatuses={visibleStatuses}
             />
           ))}
           {tasks.length === 0 && <div className="empty">Aucune tâche ne correspond aux filtres.</div>}
@@ -156,21 +159,30 @@ function GroupBlock({
   taxonomies,
   onOpen,
   currentSprintKey,
+  visibleStatuses,
 }: {
   group: import('./groupUtils').TaskGroup;
   statuses: TaxonomyItem[];
   taxonomies: TaxonomyItem[] | undefined;
   onOpen: (taskId: string) => void;
   currentSprintKey?: string | null;
+  visibleStatuses?: string[] | null;
 }) {
   const byStatus = new Map<string, Task[]>();
   for (const t of group.tasks) {
     if (!byStatus.has(t.status)) byStatus.set(t.status, []);
     byStatus.get(t.status)!.push(t);
   }
-  const orderedStatuses = statuses.filter((s) => byStatus.has(s.key));
-  for (const key of byStatus.keys()) {
-    if (!orderedStatuses.find((s) => s.key === key)) orderedStatuses.push({ key, label: key } as TaxonomyItem);
+  // When visibleStatuses is set, render exactly those columns (in taxonomy
+  // order) even when empty; otherwise "auto" — only statuses that have tasks.
+  let orderedStatuses: TaxonomyItem[];
+  if (visibleStatuses && visibleStatuses.length) {
+    orderedStatuses = statuses.filter((s) => visibleStatuses.includes(s.key));
+  } else {
+    orderedStatuses = statuses.filter((s) => byStatus.has(s.key));
+    for (const key of byStatus.keys()) {
+      if (!orderedStatuses.find((s) => s.key === key)) orderedStatuses.push({ key, label: key } as TaxonomyItem);
+    }
   }
   const isCurrent = currentSprintKey && group.key === currentSprintKey;
   return (

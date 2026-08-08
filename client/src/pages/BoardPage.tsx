@@ -10,11 +10,14 @@ import JiraBoard from '../components/Board/JiraBoard';
 import ListBoard from '../components/Board/ListBoard';
 import PlanningBoard from '../components/Board/PlanningBoard';
 import CurrentSprintHero from '../components/Board/CurrentSprintHero';
+import StatusPicker from '../components/Board/StatusPicker';
+import ViewsBar from '../components/Board/ViewsBar';
 import TaskModal from '../components/Task/TaskModal';
 import NewTaskModal from '../components/Task/NewTaskModal';
-import { EMPTY_FILTERS, type BoardView, type TaskFilters } from '../types';
+import { type BoardView } from '../types';
 import { fmtDur, hoursOf } from '../utils/format';
 import { GROUP_OPTIONS, type GroupByKey } from '../components/Board/groupUtils';
+import { useBoardViews } from '../hooks/useBoardViews';
 
 const VIEWS: { value: BoardView; label: string }[] = [
   { value: 'grouped', label: 'Board' },
@@ -29,10 +32,14 @@ export default function BoardPage() {
   const { data: stats } = useProjectStats(projectKey);
   const { data: taxonomies } = useTaxonomies(projectKey);
   const { data: users } = useUsers();
-  const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
+  const boardViews = useBoardViews(projectKey);
+  const { config, update } = boardViews;
+  const { filters, view, visibleStatuses } = config;
+  const groupBy = config.groupBy as GroupByKey;
+  const setFilters = (f: typeof filters) => update({ filters: f });
+  const setView = (v: BoardView) => update({ view: v });
+  const setGroupBy = (g: GroupByKey) => update({ groupBy: g });
   const { data: tasks, isLoading } = useTasks(projectKey, filters);
-  const [view, setView] = useState<BoardView>('grouped');
-  const [groupBy, setGroupBy] = useState<GroupByKey>('sprint');
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const updateTask = useUpdateTask(projectKey || '');
@@ -84,10 +91,22 @@ export default function BoardPage() {
       </div>
 
       <div className="page-toolbar" style={{ paddingTop: 0 }}>
-        <span className="text-muted" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
-          {project?.name} · v{project?.currentVersion}
-        </span>
+        <ViewsBar
+          views={boardViews.views}
+          currentId={boardViews.currentId}
+          dirty={boardViews.dirty}
+          onApply={boardViews.apply}
+          onSaveNew={boardViews.saveAsNew}
+          onUpdate={boardViews.updateCurrent}
+          onClone={boardViews.cloneCurrent}
+          onRename={boardViews.rename}
+          onDelete={boardViews.remove}
+          onReset={boardViews.resetNew}
+        />
         <div className="header-spacer" />
+        {(view === 'grouped' || view === 'jira') && (
+          <StatusPicker taxonomies={taxonomies} value={visibleStatuses} onChange={(v) => update({ visibleStatuses: v })} />
+        )}
         <div className="ctrl" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <label style={{ marginBottom: 0 }}>Regrouper par</label>
           <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupByKey)}>
@@ -124,6 +143,7 @@ export default function BoardPage() {
           onDrop={handleDrop}
           groupBy={groupBy}
           currentSprintKey={project?.currentSprint}
+          visibleStatuses={visibleStatuses}
         />
       )}
       {!isLoading && tasks && view === 'jira' && (
@@ -134,6 +154,7 @@ export default function BoardPage() {
           onDrop={handleDrop}
           groupBy={groupBy}
           currentSprintKey={project?.currentSprint}
+          visibleStatuses={visibleStatuses}
         />
       )}
       {!isLoading && tasks && view === 'planning' && (

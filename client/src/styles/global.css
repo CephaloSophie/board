@@ -650,3 +650,30 @@ main.board-main { padding: 18px 22px 60px; }
 .ff__input:not(:placeholder-shown) + .ff__label,
 .ff__label--static { top: 5px; font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
 .ff__input:not(:focus):not(:placeholder-shown) + .ff__label { color: var(--mute); }
+
+/* ================= Status/columns picker + saved views ================= */
+.status-picker { position: relative; }
+.status-picker__backdrop { position: fixed; inset: 0; z-index: 40; }
+.status-picker__pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; width: 240px;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 10px; 
+}
+.status-picker__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
+.status-picker__list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+.status-picker__item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; cursor: pointer; }
+.status-picker__item:hover { background: var(--panel-2); }
+.status-picker__item.on { color: var(--text); }
+.status-picker__foot { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+
+.views-bar { display: flex; align-items: center; gap: 8px; position: relative; }
+.views-bar__label { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--mute); }
+.views-bar__dirty { color: var(--gold); font-size: 22px; line-height: 0; }
+.views-bar__actions { position: relative; display: flex; gap: 4px; }
+.views-bar__menu {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 41; min-width: 210px;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); padding: 6px;
+}
+.views-bar__menu button { display: block; width: 100%; text-align: left; background: transparent; border: none; color: var(--soft); padding: 8px 10px; border-radius: 8px; font-size: 12.5px; cursor: pointer; }
+.views-bar__menu button:hover { background: var(--panel-2); color: var(--text); }
+.views-bar__menu button.danger { color: var(--danger); }

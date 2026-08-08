@@ -218,6 +218,22 @@ export interface Task {
 export type Theme = 'dark' | 'light' | 'ubuntu' | 'mac';
 export type BoardView = 'grouped' | 'list' | 'jira' | 'planning';
 
+// A complete, saveable board configuration (persisted in localStorage).
+export interface BoardConfig {
+  view: BoardView;
+  groupBy: string;
+  filters: TaskFilters;
+  // null = "auto" (only statuses that have tasks). An array = exactly these
+  // status columns, rendered even when empty, in taxonomy order.
+  visibleStatuses: string[] | null;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  config: BoardConfig;
+}
+
 export interface TaskFilters {
   status: string[];
   priority: string[];

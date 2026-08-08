@@ -58,6 +58,7 @@ export default function JiraBoard({
   onDrop,
   groupBy,
   currentSprintKey,
+  visibleStatuses,
 }: {
   tasks: Task[];
   taxonomies: TaxonomyItem[] | undefined;
@@ -65,6 +66,7 @@ export default function JiraBoard({
   onDrop: (taskId: string, status: string) => void;
   groupBy: GroupByKey;
   currentSprintKey?: string | null;
+  visibleStatuses?: string[] | null;
 }) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
@@ -102,9 +104,14 @@ export default function JiraBoard({
           if (!byStatus.has(t.status)) byStatus.set(t.status, []);
           byStatus.get(t.status)!.push(t);
         }
-        const ordered = statuses.filter((s) => byStatus.has(s.key));
-        for (const key of byStatus.keys()) {
-          if (!ordered.find((s) => s.key === key)) ordered.push({ key, label: key } as TaxonomyItem);
+        let ordered: TaxonomyItem[];
+        if (visibleStatuses && visibleStatuses.length) {
+          ordered = statuses.filter((s) => visibleStatuses.includes(s.key));
+        } else {
+          ordered = statuses.filter((s) => byStatus.has(s.key));
+          for (const key of byStatus.keys()) {
+            if (!ordered.find((s) => s.key === key)) ordered.push({ key, label: key } as TaxonomyItem);
+          }
         }
         const isCurrent = currentSprintKey && g.key === currentSprintKey;
         return (
