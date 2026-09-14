@@ -6,6 +6,10 @@ const { loadProject, requireProjectRole, blockWritesIfArchived } = require('../m
 const { statusContext } = require('../utils/taxonomyMeta');
 const { applyPatchWithHistory } = require('../utils/taskHistory');
 const { compareVersions } = require('../utils/versions');
+const { logActivity, taskActivities, projectActivity } = require('../utils/activity');
+
+const versionLog = (req, version, action, note, { versions = [], ...extra } = {}) =>
+  logActivity(projectActivity(req.project, req.user, { scope: 'version', action, note, versions: [version.key, ...versions], ...extra }));
 
 // Versions / releases: taxonomy rows (kind 'version') with a release lifecycle.
 const router = Router({ mergeParams: true });
@@ -53,6 +57,7 @@ router.get('/', async (req, res) => {
     currentVersion: req.project.currentVersion,
     versions: versions.map((v) => ({
       ...v,
+      meta: v.meta || {},
       status: v.meta?.status || 'unreleased',
       stats: stats.get(v.key) || { taskCount: 0, points: 0, doneCount: 0 },
     })),
@@ -80,6 +85,7 @@ router.post('/', ...adminWrite, async (req, res) => {
       ...(b.description ? { description: String(b.description) } : {}),
     },
   });
+  await versionLog(req, version, 'version.created', `Version ${version.label} créée.`);
   res.status(201).json({ version });
 });
 
@@ -98,6 +104,7 @@ router.patch('/:versionKey', ...adminWrite, async (req, res) => {
   if (b.releaseDate !== undefined) patch.releaseDate = toIsoDate(b.releaseDate);
   if (b.description !== undefined) patch.description = b.description ? String(b.description) : undefined;
   await setMeta(version, patch);
+  await versionLog(req, version, 'version.updated', `Version ${version.label} modifiée.`, { data: { changes: Object.keys(b) } });
   res.json({ version });
 });
 
@@ -113,21 +120,37 @@ router.post('/:versionKey/release', ...adminWrite, async (req, res) => {
     }
     const ctx = await statusContext(req.project._id);
     const open = await Task.find({ project: req.project._id, version: version.key, status: { $nin: [...ctx.doneKeys] } });
+    const movedActivities = [];
     for (const task of open) {
-      applyPatchWithHistory(task, { version: target.key }, req.user, `Report à la publication de la version ${version.key}.`, {
+      const entries = applyPatchWithHistory(task, { version: target.key }, req.user, `Report à la publication de la version ${version.key}.`, {
         categoryOf: ctx.categoryOf,
       });
       await task.save();
+      movedActivities.push(...taskActivities(req.project, task, entries, req.user));
     }
+    await logActivity(movedActivities);
     moved = open.length;
   }
   await setMeta(version, { status: 'released', releasedAt: toIsoDate(b.releasedAt) || new Date().toISOString() });
+  await versionLog(req, version, 'version.released', `Version ${version.label} publiée${moved ? `, ${moved} tâche(s) reportée(s) vers ${b.moveOpenTo}` : ''}.`, {
+    versions: [b.moveOpenTo],
+    data: { moved },
+  });
   if (b.setCurrent) {
     if (!(await Taxonomy.exists({ project: req.project._id, kind: 'version', key: b.setCurrent }))) {
       return res.status(400).json({ error: 'Version courante inconnue.' });
     }
+    const previous = req.project.currentVersion;
     req.project.currentVersion = b.setCurrent;
     await req.project.save();
+    if (previous !== b.setCurrent) {
+      await versionLog(req, { key: b.setCurrent }, 'version.current', `Version courante : ${b.setCurrent}.`, {
+        field: 'currentVersion',
+        from: previous,
+        to: b.setCurrent,
+        versions: [previous],
+      });
+    }
   }
   res.json({ version, moved, currentVersion: req.project.currentVersion });
 });
@@ -136,6 +159,7 @@ router.post('/:versionKey/unrelease', ...adminWrite, async (req, res) => {
   const version = await findVersion(req, res);
   if (!version) return;
   await setMeta(version, { status: 'unreleased', releasedAt: undefined });
+  await versionLog(req, version, 'version.unreleased', `Version ${version.label} dépubliée.`);
   res.json({ version });
 });
 

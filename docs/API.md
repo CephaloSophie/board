@@ -48,12 +48,19 @@ Rôles projet : `viewer` < `member` < `admin` (super admin et responsable = admi
 
 | Méthode | Route | Droits | Description |
 |---|---|---|---|
-| GET | `/projects/:key/tasks` | lecture | filtres ci-dessous ; `filterId` ; `fields=summary` ; `sort=champ:asc\|desc` ; `limit`/`skip` (+ `X-Total-Count`) ; réponse `{ tasks, warnings }` |
+| GET | `/projects/:key/tasks` | lecture | filtres ci-dessous ; `filterId` ; `taskIds=KB-1,KB-2` ; `fields=summary` ; `sort=champ:asc\|desc` ; `limit`/`skip` (+ `X-Total-Count`) ; réponse `{ tasks, warnings }` |
 | GET | `/projects/:key/tasks/:taskId` | lecture | tâche complète (historique, commentaires) |
 | POST | `/projects/:key/tasks` | member | statut / type / priorité par défaut du projet si absents |
 | PATCH | `/projects/:key/tasks/:taskId` | member | champs + `note` ; historique automatique |
 | DELETE | `/projects/:key/tasks/:taskId` | admin | |
-| POST / PATCH / DELETE | `/projects/:key/tasks/:taskId/comments[/:id]` | member (auteur ou admin pour modifier / supprimer) | |
+| POST | `/projects/:key/tasks/bulk` | member | `{ taskIds (≤ 500), patch: { sprint?, version?, assignee?, status?, priority?, type?, category?, techno?, area?, dueDate?, parent? }, note? }` → `{ updated, unchanged, notFound }` (`NO_TASKS`, `EMPTY_PATCH`, `TOO_MANY_TASKS`) |
+| POST | `/projects/:key/tasks/:taskId/comments` | member | `{ text, parent? }` (réponse rattachée au commentaire racine) → `{ comments, commentId }` |
+| PATCH / DELETE | `/projects/:key/tasks/:taskId/comments/:id` | auteur ou admin (`NOT_COMMENT_AUTHOR`) | modifier `{ text }` ; supprimer (avec ses réponses) |
+| POST | `/projects/:key/tasks/:taskId/comments/:id/reactions` | member | `{ emoji }` bascule la réaction de l'utilisateur (`REACTION_INVALID`) → `{ comments, added }` |
+
+Texte des descriptions et commentaires : Markdown restreint (voir `client/src/components/common/RichText.tsx`),
+`@username` notifie les membres ayant accès au projet. Chaque changement (champs suivis, description,
+instructions, critères, estimation, durée, commentaires) ajoute une entrée à `history` et au journal.
 
 **Filtres** (paramètres répétables `?status=a&status=b`) : `status`, `statusCategory`
 (`todo|inprogress|done`), `priority`, `type`, `category`, `techno`, `area`, `version`, `sprint`,
@@ -88,9 +95,40 @@ startedBy, startSnapshot, closedAt, closedBy, report, reopenedAt` ; version `sta
 | GET | `…/:sprintKey/close-preview` | lecture | terminées, non terminées, cibles possibles |
 | POST | `…/:sprintKey/close` | admin | `{ carryOver: { mode: sprint\|backlog\|newSprint, targetKey?, newSprint? }, keep, startTarget, createRetro }` |
 | DELETE | `…/:sprintKey` | admin | refusé si référencé (`SPRINT_IN_USE`) |
+| PUT | `/projects/:key/sprints/current` | admin | `{ key \| null }` : sprint courant sans démarrage (`SPRINT_FINISHED`, `ACTIVE_SPRINT_EXISTS`) |
+| GET | `…/:sprintKey/leftovers` | lecture | `{ sprint, notDone, carriedOver }` : reste à faire (tâches encore dans le sprint, tâches reportées et leur emplacement) |
 | GET | `/projects/:key/versions` | lecture | versions + stats, tri décroissant |
 | POST / PATCH | `/projects/:key/versions[/:versionKey]` | admin | dates, description, archivage |
 | POST | `…/versions/:versionKey/release` · `/unrelease` | admin | `{ releasedAt?, moveOpenTo?, setCurrent? }` |
+
+## Journal d'activité
+
+| Méthode | Route | Droits | Description |
+|---|---|---|---|
+| GET | `/projects/:key/activity` | lecture | `{ entries, nextCursor }`, plus récent d'abord |
+| GET | `/activity` | authentifié | idem sur tous les projets visibles, `?project=KB,KYDOS` ; chaque entrée porte `projectKey` |
+
+Paramètres : `user` (ids), `scope` (`task, comment, sprint, version, project, import`), `action`
+(`task.updated`, `comment.added`, `sprint.closed`, `version.current`…), `field`, `taskId`, `sprint`,
+`version` (entrées touchant ce sprint / cette version, avant ou après), `from` / `to` (ISO ou
+`AAAA-MM-JJ` inclus), `q`, `limit` (≤ 200), `cursor`. Listes séparées par des virgules.
+
+## Notifications
+
+| Méthode | Route | Droits | Description |
+|---|---|---|---|
+| GET | `/notifications` | authentifié | `?limit=&unread=1` → `{ notifications, unread }` (non lues d'abord) |
+| POST | `/notifications/read` | authentifié | `{ ids }` ou `{ all: true }` → `{ updated, unread }` |
+| DELETE | `/notifications/read` | authentifié | supprime les notifications lues |
+
+Types : `mention, assigned, comment, reply, reaction, status`. Pas de push : le client les charge au démarrage.
+
+## Images
+
+| Méthode | Route | Droits | Description |
+|---|---|---|---|
+| POST | `/projects/:key/attachments` | member | `{ name, data (base64 ou data URL), taskId? }` ; PNG, JPEG, GIF, WebP (signature vérifiée), 8 Mo max (`ATTACHMENT_TYPE` 415, `ATTACHMENT_TOO_LARGE` 413) → `{ attachment: { url } }` |
+| GET | `/files/:publicId/:name` | public (identifiant non devinable) | image servie avec `nosniff` et CSP stricte |
 
 ## Filtres enregistrés
 

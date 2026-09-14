@@ -16,6 +16,7 @@ const PROJECT_SCOPED_KEYS = [
   'filters',
   'analytics',
   'labels',
+  'activity',
 ];
 
 export function useInvalidateProject(projectKey: string | undefined) {

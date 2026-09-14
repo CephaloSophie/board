@@ -1,6 +1,6 @@
 # Fonctionnalités de Kýdos Board
 
-État au 14/09/2026 (Lot 1 livré). Specs de référence : `docs/product/PM_ANALYSIS.md` (chef de
+État au 15/09/2026 (Lot 1 + planification, traçabilité et collaboration). Specs de référence : `docs/product/PM_ANALYSIS.md` (chef de
 projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira).
 
 ## 1. Board et tâches
@@ -9,10 +9,18 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
 - **Regroupement** par sprint, version, catégorie, techno, domaine, type, priorité, statut, assigné
   ou aucun ; barre latérale des groupes, statistiques par groupe (points à faire / en cours /
   terminés selon la **catégorie** du statut).
-- **Glisser-déposer** entre colonnes (historisé), réservé aux membres et administrateurs.
+- **Glisser-déposer** (historisé, membres et administrateurs) : **toutes les colonnes du workflow**
+  sont affichées, même vides (option « Tous les statuts »), et une carte peut être déposée dans un
+  **autre groupe** : le champ regroupé change avec le statut (sprint, version, assigné, priorité,
+  type, catégorie…). Option « Groupes vides » : sprints à venir, versions non publiées, membres et
+  backlog restent visibles comme cibles (repliés en zone de dépôt, dépliables).
 - **Tâche** : titre, description, instructions, critères d'acceptation, statut, priorité, type,
   catégorie, techno, domaine, version, sprint, **étiquettes**, **tâche parente**, **échéance**,
   points, estimation, durée réelle, assigné, rapporteur, commentaires, historique complet.
+- **Texte riche** (description et commentaires) : gras, italique, souligné, barré, surligné,
+  couleurs, titres, listes, cases à cocher, citations, code, tableaux, liens, **images** (bouton,
+  copier-coller ou glisser), `@mentions` avec auto-complétion, clés de tâche liées (`KB-12`),
+  aperçu. Rendu sûr (aucun HTML brut).
 - Dates dérivées : `resolvedAt` (entrée dans un statut « terminé »), `statusChangedAt`.
 - Popup ou page dédiée `/projects/:key/tasks/:taskId`, décalage sprint précédent / suivant.
 - Tâches importées : clé Jira d'origine (lien), assigné d'origine conservé si non rapproché,
@@ -60,13 +68,41 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
 - **Versions** : dates de début / sortie, publication (déplacement des tâches ouvertes vers une
   autre version, nouvelle version courante), dépublication, avancement par version.
 
-## 5. Rituels
+## 5. Planification et traçabilité (`/projects/:key/planning`, `/projects/:key/activity`)
+
+- **Cockpit** : sprint courant (choix du sprint courant sans le démarrer, démarrer / clôturer sur
+  place, avancement, J-x, engagement), version courante (changement, avancement, sortie prévue),
+  sprint précédent (engagé / livré / reporté).
+- **Reste à faire du sprint précédent** : tâches restées dans le sprint clôturé et tâches reportées
+  encore ouvertes (avec leur emplacement actuel) ; décalage de la sélection ou de tout vers un sprint.
+- **Tableau de planification** par sprint ou par version : backlog + sprints actif / prêts /
+  brouillons (option terminés), glisser-déposer d'une tâche ou de toute la sélection, barre d'actions
+  groupées (sprint, version, assigné, statut), recherche, filtre assigné, masquage des terminées.
+- **Journal d'activité** du projet : chaque action (création, statut, réassignation, décalage de
+  sprint ou de version, points, estimation, contenu, commentaires, réactions, cycle de vie des
+  sprints et versions, sprint / version courants, imports et annulations) avec auteur et date ;
+  filtres par membre, type, modification, sprint, version, période, tâche et texte ; partage par
+  URL ; raccourcis « Aujourd'hui », « 7 derniers jours », « Mes actions », « Décalages ».
+- **Historique de la tâche** : chronologie par jour, filtrable (statut, assignation, sprint &
+  version, points & temps, contenu, commentaires), avec les noms des personnes.
+
+## 6. Collaboration et notifications
+
+- **Commentaires en fil** (un niveau de réponses), modification / suppression (auteur ou admin),
+  **réactions** emoji par utilisateur (👍 👎 ❤️ 🎉 😄 😕 🚀 👀 ✅ 🔥), mentions et images.
+- **Notifications** (cloche dans l'en-tête) : mention, assignation, commentaire sur une tâche dont on
+  est assigné ou rapporteur, réponse, réaction, changement de statut. Jamais pour ses propres
+  actions ; une seule notification par personne et par action. Chargées **une fois au chargement
+  de l'application** (pas de WebSocket ni de polling), bouton « Actualiser », marquer lu / tout lu,
+  effacer les lues ; un clic ouvre la tâche sur le commentaire concerné.
+
+## 7. Rituels
 
 Refinement, grooming, point technique, point architecture (ADR), préparation de démo,
 rétrospective ; types configurables (icône, sections), participants, tâches liées, ordre du jour,
 décisions, actions ; ajout rapide d'une tâche à un rituel depuis une carte.
 
-## 6. Import Jira et export
+## 8. Import Jira et export
 
 - **Formats** : CSV Jira « Tous les champs » / « Champs actuels » (Cloud et Data Center, en-têtes
   répétés, séparateurs `,` `;`, dates `14/Sep/26 9:05 AM`, mois français, ISO), **JSON de l'API**
@@ -95,7 +131,7 @@ décisions, actions ; ajout rapide d'une tâche à un rituel depuis une carte.
 - **Export** : projet complet en JSON (`kydos-project/1`, sans secrets) et tâches en **CSV
   compatible Jira** (filtre enregistré optionnel, séparateur `;` pour Excel FR), réimportable.
 
-## 7. Administration du projet (`/projects/:key/settings/:onglet`)
+## 9. Administration du projet (`/projects/:key/settings/:onglet`)
 
 | Onglet | Contenu |
 |---|---|
@@ -112,12 +148,12 @@ commentaires) ; membre = création / modification ; seule l'administration suppr
 Projet archivé : bandeau et écritures refusées (423), filtres et dashboards personnels toujours
 utilisables.
 
-## 8. Administration globale
+## 10. Administration globale
 
 `/admin/users` (super admin) : création, modification (nom, e-mail, couleur, rôle global),
 réinitialisation du mot de passe, désactivation / réactivation.
 
-## 9. Kýdos vs Jira
+## 11. Kýdos vs Jira
 
 | Besoin | Jira | Kýdos |
 |---|---|---|
@@ -129,11 +165,15 @@ réinitialisation du mot de passe, désactivation / réactivation.
 | Filtres dynamiques (`@me`, sprint courant) | JQL | sélection en un clic, partage par URL |
 | Dashboard | gadgets à colonnes fixes | grille libre, filtre global, lien vers le board |
 | Burndown | rapport figé | reconstruit depuis l'historique, burnup, périmètre |
+| Reste à faire du sprint précédent | rapport de sprint séparé | panneau dédié, décalage en un clic |
+| Journal d'activité projet filtrable | non (historique par ticket) | par membre, sprint, version, période, type |
+| Glisser-déposer entre sprints / assignés sur le board | backlog uniquement | toute dimension de regroupement |
 
-## 10. Limites connues et prochain lot
+## 12. Limites connues et prochain lot
 
 - Burndown des sprints passés approximatif quand l'historique importé ne contient pas les
   transitions (CSV) : avertissement affiché.
-- Pas encore : transitions de workflow imposées et limites WIP, vue backlog classée, édition en
-  masse, notifications / @mentions, pièces jointes, worklogs, synchronisation Jira par API,
-  langage de requête textuel (JQL-like), import du bundle `kydos-project/1`.
+- Pas encore : transitions de workflow imposées et limites WIP, classement manuel du backlog,
+  notifications en temps réel / e-mail (volontairement chargées au démarrage), pièces jointes non
+  image, worklogs, synchronisation Jira par API, langage de requête textuel (JQL-like), import du
+  bundle `kydos-project/1`.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Task, TaxonomyItem } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
-import { useUpdateTask, useDeleteTask } from '../../api/tasks';
+import { useUpdateTask, useDeleteTask, type TaskPatch } from '../../api/tasks';
 import { useAssignableUsers } from '../../api/members';
 import { useProjectLabels } from '../../api/projects';
 import { metaOf } from '../../utils/format';
@@ -11,6 +11,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useProjectRole } from '../../hooks/useProjectRole';
 import Avatar from '../common/Avatar';
 import LabelsInput from '../common/LabelsInput';
+import RichText from '../common/RichText';
+import RichTextEditor from '../common/RichTextEditor';
+import { useProjectPeople } from '../../hooks/useProjectPeople';
 import CommentList from './CommentList';
 import HistoryList from './HistoryList';
 import AddToEventPopup from './AddToEventPopup';
@@ -57,6 +60,8 @@ export default function TaskDetail({
   const [parent, setParent] = useState(task.parent || '');
   const [editingText, setEditingText] = useState(false);
   const [addingToEvent, setAddingToEvent] = useState(false);
+  const [activityTab, setActivityTab] = useState<'comments' | 'history'>('comments');
+  const people = useProjectPeople(projectKey);
 
   useEffect(() => {
     setTitle(task.title);
@@ -72,7 +77,7 @@ export default function TaskDetail({
 
   function field(name: string, value: unknown) {
     if (!canWrite) return;
-    updateTask.mutate({ taskId: task.taskId, data: { [name]: value } as Partial<Task> });
+    updateTask.mutate({ taskId: task.taskId, data: { [name]: value } as TaskPatch });
   }
 
   function saveText() {
@@ -355,7 +360,14 @@ export default function TaskDetail({
               <div className="stack" style={{ marginTop: 8 }}>
                 <div className="field">
                   <label>Description</label>
-                  <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+                  <RichTextEditor
+                    value={description}
+                    onChange={setDescription}
+                    projectKey={projectKey}
+                    taskId={task.taskId}
+                    rows={10}
+                    placeholder="Contexte, captures d'écran, @mentions…"
+                  />
                 </div>
                 <div className="field">
                   <label>Instructions (une par ligne)</label>
@@ -368,7 +380,12 @@ export default function TaskDetail({
               </div>
             ) : (
               <>
-                {task.description ? <p>{task.description}</p> : <p className="text-muted">Aucune description.</p>}
+                <RichText
+                  text={task.description}
+                  projectKey={projectKey}
+                  mentionLabel={people.mentionLabel}
+                  empty={<p className="text-muted">Aucune description.</p>}
+                />
                 {task.instructions.length > 0 && (
                   <>
                     <h4>Instructions</h4>
@@ -394,13 +411,22 @@ export default function TaskDetail({
           </div>
 
           <div className="m-sec">
-            <h4>Commentaires</h4>
-            <CommentList projectKey={projectKey} task={task} readOnly={!canWrite} />
-          </div>
-
-          <div className="m-sec">
-            <h4>Historique</h4>
-            <HistoryList history={task.history} taxonomies={taxonomies} />
+            <div className="activity-tabs">
+              <h4 style={{ margin: 0 }}>Activité</h4>
+              <div className="view-switcher">
+                <button className={activityTab === 'comments' ? 'active' : ''} onClick={() => setActivityTab('comments')}>
+                  Commentaires ({task.comments.length})
+                </button>
+                <button className={activityTab === 'history' ? 'active' : ''} onClick={() => setActivityTab('history')}>
+                  Historique ({task.history.length})
+                </button>
+              </div>
+            </div>
+            {activityTab === 'comments' ? (
+              <CommentList projectKey={projectKey} task={task} readOnly={!canWrite} />
+            ) : (
+              <HistoryList history={task.history} taxonomies={taxonomies} userName={people.userName} />
+            )}
           </div>
 
           {isAdmin && (

@@ -1,13 +1,24 @@
 const { Schema, model } = require('mongoose');
 
+const reactionSchema = new Schema(
+  {
+    emoji: { type: String, required: true },
+    users: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
+  },
+  { _id: false }
+);
+
 const commentSchema = new Schema(
   {
     // null for imported comments whose author has no Kýdos account (see authorLabel).
     author: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     authorLabel: { type: String, trim: true },
-    text: { type: String, required: true, trim: true },
+    text: { type: String, required: true, trim: true, maxlength: 50000 },
     editedAt: { type: Date },
     externalId: { type: String }, // Jira comment id or "fp:<sha1>" fingerprint (idempotent re-imports)
+    parent: { type: Schema.Types.ObjectId, default: null }, // reply to another comment of the same task (one level)
+    mentions: { type: [Schema.Types.ObjectId], default: undefined },
+    reactions: { type: [reactionSchema], default: undefined },
   },
   { timestamps: true }
 );

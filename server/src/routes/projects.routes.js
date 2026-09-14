@@ -10,6 +10,7 @@ const { Counter } = require('../models/Counter');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { loadProject, projectRoleFor, requireProjectRole } = require('../middleware/project');
 const { statusContext } = require('../utils/taxonomyMeta');
+const { logActivity, projectActivity } = require('../utils/activity');
 
 const router = Router();
 router.use(requireAuth);
@@ -122,6 +123,7 @@ router.patch('/:projectKey', loadProject, requireProjectRole('admin'), async (re
   }
   if (b.vendor !== undefined) p.vendor = b.vendor;
   if (b.description !== undefined) p.description = b.description;
+  const previousVersion = p.currentVersion;
   if (b.currentVersion !== undefined) p.currentVersion = b.currentVersion;
   if (b.sprintDurationValue !== undefined) p.sprintDurationValue = Math.min(Math.max(Number(b.sprintDurationValue) || 1, 1), 90);
   if (b.sprintDurationUnit !== undefined && ['days', 'weeks'].includes(b.sprintDurationUnit)) {
@@ -170,6 +172,19 @@ router.patch('/:projectKey', loadProject, requireProjectRole('admin'), async (re
   // `currentSprint` and `archived` are driven by dedicated routes (sprint lifecycle, archive).
 
   await p.save();
+  if (p.currentVersion !== previousVersion) {
+    await logActivity(
+      projectActivity(p, req.user, {
+        scope: 'version',
+        action: 'version.current',
+        field: 'currentVersion',
+        from: previousVersion,
+        to: p.currentVersion,
+        versions: [previousVersion, p.currentVersion],
+        note: `Version courante : ${p.currentVersion}.`,
+      })
+    );
+  }
   res.json({ project: withRole(p, req.user) });
 });
 
@@ -280,6 +295,9 @@ router.delete('/:projectKey', loadProject, requireRole('superadmin'), async (req
     filters: (await SavedFilter.deleteMany(scope)).deletedCount,
     dashboards: await optional('Dashboard'),
     imports: await optional('ImportJob'),
+    activity: await optional('Activity'),
+    notifications: await optional('Notification'),
+    attachments: await optional('Attachment'),
   };
   await Counter.deleteOne({ _id: p.key });
   await p.deleteOne();

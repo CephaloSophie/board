@@ -3,18 +3,19 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useProject, useProjectLabels, useProjectStats } from '../api/projects';
 import { useTaxonomies } from '../api/taxonomies';
 import { useUsers } from '../api/users';
-import { useTasks, useUpdateTask } from '../api/tasks';
+import { useTasks, useUpdateTask, type TaskPatch } from '../api/tasks';
+import { useAssignableUsers } from '../api/members';
 import { useSavedFilters } from '../api/filters';
 import Filters from '../components/Board/Filters';
-import GroupedBoard from '../components/Board/GroupedBoard';
+import GroupedBoard, { type DropTarget } from '../components/Board/GroupedBoard';
 import JiraBoard from '../components/Board/JiraBoard';
 import ListBoard from '../components/Board/ListBoard';
 import SavedFiltersBar from '../components/Board/SavedFiltersBar';
 import TaskModal from '../components/Task/TaskModal';
 import NewTaskModal from '../components/Task/NewTaskModal';
-import type { BoardView, SavedFilter } from '../types';
+import type { BoardView, SavedFilter, Task } from '../types';
 import { fmtDur, hoursOf } from '../utils/format';
-import { GROUP_OPTIONS, type GroupByKey } from '../components/Board/groupUtils';
+import { GROUP_OPTIONS, UNASSIGNED, type GroupByKey } from '../components/Board/groupUtils';
 import {
   boardStateFromParams,
   boardStateOf,
@@ -33,13 +34,27 @@ const VIEWS: { value: BoardView; label: string }[] = [
 
 const SHOW_FILTERS_KEY = 'board.showFilters';
 
-function readShowFilters(): boolean {
+const EMPTY_COLUMNS_KEY = 'board.showEmptyColumns';
+const EMPTY_GROUPS_KEY = 'board.showEmptyGroups';
+
+function readPref(key: string, fallback: boolean): boolean {
   try {
-    return localStorage.getItem(SHOW_FILTERS_KEY) !== '0';
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v !== '0';
   } catch {
-    return true;
+    return fallback;
   }
 }
+
+function writePref(key: string, value: boolean) {
+  try {
+    localStorage.setItem(key, value ? '1' : '0');
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+const readShowFilters = () => readPref(SHOW_FILTERS_KEY, true);
 
 export default function BoardPage() {
   const { projectKey } = useParams();
@@ -63,6 +78,11 @@ export default function BoardPage() {
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [showFilters, setShowFilters] = useState(readShowFilters);
+  // Every workflow status is a drop target, even without tasks; empty groups
+  // (sprints, versions, members…) can be shown to drop cards into them.
+  const [showEmptyColumns, setShowEmptyColumns] = useState(() => readPref(EMPTY_COLUMNS_KEY, true));
+  const [showEmptyGroups, setShowEmptyGroups] = useState(() => readPref(EMPTY_GROUPS_KEY, true));
+  const { data: assignable } = useAssignableUsers(projectKey);
   const updateTask = useUpdateTask(projectKey || '');
 
   function setBoard(patch: Partial<BoardState>) {
@@ -88,19 +108,39 @@ export default function BoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey, savedFilters]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SHOW_FILTERS_KEY, showFilters ? '1' : '0');
-    } catch {
-      /* storage unavailable */
-    }
-  }, [showFilters]);
+  useEffect(() => writePref(SHOW_FILTERS_KEY, showFilters), [showFilters]);
+  useEffect(() => writePref(EMPTY_COLUMNS_KEY, showEmptyColumns), [showEmptyColumns]);
+  useEffect(() => writePref(EMPTY_GROUPS_KEY, showEmptyGroups), [showEmptyGroups]);
 
   if (!projectKey) return null;
 
-  function handleDrop(taskId: string, status: string) {
+  // A drop can change the status (column) and the grouped field (sprint, version, assignee…).
+  function handleDrop(task: Task, target: DropTarget) {
     if (!canWrite) return;
-    updateTask.mutate({ taskId, data: { status, note: 'Déplacée par glisser-déposer.' } });
+    const data: TaskPatch = {};
+    const optimistic: Partial<Task> = {};
+    if (target.status && target.status !== task.status) data.status = target.status;
+    const field = board.groupBy;
+    if (target.groupKey !== null && field !== 'none') {
+      const value = target.groupKey === UNASSIGNED ? null : target.groupKey;
+      if (field === 'assignee') {
+        if ((task.assignee?._id ?? null) !== value) {
+          data.assignee = value;
+          const member = value ? (assignable || []).find((u) => u.id === value) : null;
+          optimistic.assignee = member
+            ? { _id: member.id, username: member.username, displayName: member.displayName, color: member.color }
+            : value
+              ? (tasks || []).find((t) => t.assignee?._id === value)?.assignee ?? null
+              : null;
+        }
+      } else if (field === 'status') {
+        if (value && value !== task.status) data.status = value;
+      } else if (((task as unknown as Record<string, unknown>)[field] ?? null) !== value) {
+        (data as Record<string, unknown>)[field] = value;
+      }
+    }
+    if (!Object.keys(data).length) return;
+    updateTask.mutate({ taskId: task.taskId, data: { ...data, note: 'Déplacée par glisser-déposer.' }, optimistic });
   }
 
   const totalPoints = (tasks || []).reduce((a, t) => a + (t.complexity || 0), 0);
@@ -159,6 +199,18 @@ export default function BoardPage() {
             ))}
           </select>
         </div>
+        {board.view !== 'list' && (
+          <div className="board-toggles">
+            <label title="Afficher toutes les colonnes du workflow, même vides, pour y déposer des cartes">
+              <input type="checkbox" checked={showEmptyColumns} onChange={(e) => setShowEmptyColumns(e.target.checked)} /> Tous les statuts
+            </label>
+            {board.groupBy !== 'none' && (
+              <label title="Afficher aussi les groupes sans tâche (sprints à venir, versions, membres…)">
+                <input type="checkbox" checked={showEmptyGroups} onChange={(e) => setShowEmptyGroups(e.target.checked)} /> Groupes vides
+              </label>
+            )}
+          </div>
+        )}
         <div className="view-switcher">
           {VIEWS.map((v) => (
             <button key={v.value} className={board.view === v.value ? 'active' : ''} onClick={() => setBoard({ view: v.value })}>
@@ -201,6 +253,9 @@ export default function BoardPage() {
           onDrop={handleDrop}
           groupBy={board.groupBy}
           currentSprintKey={project?.currentSprint}
+          showEmptyColumns={showEmptyColumns}
+          showEmptyGroups={showEmptyGroups}
+          users={assignable}
         />
       )}
       {!isLoading && tasks && board.view === 'jira' && (
@@ -211,6 +266,9 @@ export default function BoardPage() {
           onDrop={handleDrop}
           groupBy={board.groupBy}
           currentSprintKey={project?.currentSprint}
+          showEmptyColumns={showEmptyColumns}
+          showEmptyGroups={showEmptyGroups}
+          users={assignable}
         />
       )}
       {!isLoading && tasks && board.view === 'list' && (

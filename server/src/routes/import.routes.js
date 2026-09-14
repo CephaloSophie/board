@@ -5,6 +5,7 @@ const { loadProject, requireProjectRole, blockWritesIfArchived } = require('../m
 const { parseImportFiles } = require('../import/jira/parseFiles');
 const { runJiraImport, rollbackImport } = require('../import/jira/importer');
 const { importError } = require('../import/jira/text');
+const { logActivity, projectActivity } = require('../utils/activity');
 
 // Mounted after a 25 MB JSON parser (see index.js). Project admins only.
 const router = Router({ mergeParams: true });
@@ -49,6 +50,17 @@ router.post('/jira', async (req, res) => {
     options: req.body?.options,
     dryRun,
   });
+  if (!dryRun) {
+    const c = result.counts || {};
+    await logActivity(
+      projectActivity(req.project, req.user, {
+        scope: 'import',
+        action: 'import.completed',
+        note: `Import Jira : ${c.created || 0} créée(s), ${c.updated || 0} mise(s) à jour, ${c.errors || 0} erreur(s).`,
+        data: { jobId: result.jobId, counts: c, files: (result.files || []).map((f) => f.name) },
+      })
+    );
+  }
   res.status(dryRun ? 200 : 201).json(result);
 });
 
@@ -68,6 +80,14 @@ router.get('/jobs/:id', async (req, res) => {
 
 router.post('/jobs/:id/rollback', async (req, res) => {
   const report = await rollbackImport({ project: req.project, user: req.user, jobId: req.params.id });
+  await logActivity(
+    projectActivity(req.project, req.user, {
+      scope: 'import',
+      action: 'import.rolledBack',
+      note: `Import annulé : ${report.tasksDeleted} tâche(s) supprimée(s), ${report.tasksRestored} restaurée(s).`,
+      data: { jobId: req.params.id, report },
+    })
+  );
   res.json({ report });
 });
 

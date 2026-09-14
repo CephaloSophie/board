@@ -47,3 +47,35 @@ export function daysUntil(iso: string | null | undefined): number | null {
   const today = new Date(todayInput() + 'T00:00:00');
   return daysBetween(today, target);
 }
+
+// "il y a 5 min", "il y a 3 j"… then a plain date after a week.
+export function fmtRelative(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const seconds = (Date.now() - d.getTime()) / 1000;
+  if (seconds < 60) return "à l'instant";
+  if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
+  if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)} h`;
+  if (seconds < 7 * 86400) return `il y a ${Math.floor(seconds / 86400)} j`;
+  return d.toLocaleDateString('fr-FR');
+}
+
+// Local calendar day label used to group timelines: "Aujourd'hui", "Hier", "lundi 14 septembre 2026".
+export function fmtDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const key = (x: Date) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
+  if (key(d) === key(today)) return "Aujourd'hui";
+  if (key(d) === key(yesterday)) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+export function localDayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}

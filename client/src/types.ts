@@ -218,6 +218,11 @@ export interface UserRef {
   color: string;
 }
 
+export interface Reaction {
+  emoji: string;
+  users: (UserRef | string)[];
+}
+
 export interface Comment {
   _id: string;
   author: UserRef | string | null;
@@ -225,6 +230,67 @@ export interface Comment {
   text: string;
   createdAt: string;
   editedAt?: string;
+  parent?: string | null;
+  mentions?: string[];
+  reactions?: Reaction[];
+}
+
+export type ActivityScope = 'task' | 'comment' | 'sprint' | 'version' | 'project' | 'import';
+
+export interface ActivityEntry {
+  _id: string;
+  project: string;
+  projectKey?: string;
+  at: string;
+  actor?: UserRef | null;
+  actorLabel?: string;
+  scope: ActivityScope;
+  action: string;
+  taskId?: string;
+  taskTitle?: string;
+  field?: string;
+  from?: unknown;
+  to?: unknown;
+  note?: string;
+  sprints?: string[];
+  versions?: string[];
+  data?: Record<string, unknown>;
+}
+
+export type NotificationType = 'mention' | 'assigned' | 'comment' | 'reply' | 'reaction' | 'status';
+
+export interface AppNotification {
+  _id: string;
+  projectKey: string;
+  type: NotificationType;
+  taskId?: string;
+  taskTitle?: string;
+  commentId?: string;
+  actor?: UserRef | null;
+  actorLabel?: string;
+  excerpt?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface LeftoverTask {
+  _id: string;
+  taskId: string;
+  title: string;
+  status: string;
+  complexity: number;
+  assignee?: UserRef | null;
+  sprint?: string | null;
+  version?: string;
+  priority?: string;
+  type?: string;
+  done: boolean;
+}
+
+export interface SprintLeftovers {
+  sprint: SprintRow;
+  notDone: LeftoverTask[];
+  carriedOver: LeftoverTask[];
 }
 
 export interface HistoryEntry {

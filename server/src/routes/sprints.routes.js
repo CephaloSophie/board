@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 const { loadProject, requireProjectRole, blockWritesIfArchived } = require('../middleware/project');
 const { statusContext } = require('../utils/taxonomyMeta');
 const { applyPatchWithHistory } = require('../utils/taskHistory');
+const { logActivity, taskActivities, projectActivity } = require('../utils/activity');
 
 // Sprint lifecycle: draft → ready → active → finished (→ reopen). Sprints are
 // taxonomy rows (kind 'sprint'); lifecycle keys in `meta` are only written here.
@@ -66,6 +67,7 @@ function present(sprint, stats) {
   const o = sprint.toObject ? sprint.toObject() : sprint;
   return {
     ...o,
+    meta: o.meta || {}, // empty meta objects are not persisted (Mongoose minimize)
     status: o.meta?.status || 'draft',
     stats: stats || { taskCount: 0, points: 0, doneCount: 0, donePoints: 0 },
   };
@@ -139,7 +141,18 @@ async function startSprint(req, sprint, body = {}) {
   });
   req.project.currentSprint = sprint.key;
   await req.project.save();
+  await sprintLog(req, sprint, 'sprint.started', `Sprint « ${sprint.label} » démarré.`, {
+    committedPoints: sprint.meta.startSnapshot.committedPoints,
+    committedCount: sprint.meta.startSnapshot.committedCount,
+  });
   return sprint;
+}
+
+function sprintLog(req, sprint, action, note, data, extra = {}) {
+  const { sprints = [], ...rest } = extra;
+  return logActivity(
+    projectActivity(req.project, req.user, { scope: 'sprint', action, note, sprints: [sprint.key, ...sprints], data: { label: sprint.label, ...data }, ...rest })
+  );
 }
 
 router.get('/', async (req, res) => {
@@ -151,8 +164,63 @@ router.get('/', async (req, res) => {
   res.json({ sprints: sprints.map((s) => present(s, stats.get(s.key))), currentSprint: req.project.currentSprint });
 });
 
+// Choose the current sprint without starting it ({ key: null } clears it). An active sprint stays current.
+router.put('/current', ...adminWrite, async (req, res) => {
+  const key = req.body?.key || null;
+  let sprint = null;
+  if (key) {
+    sprint = await Taxonomy.findOne({ project: req.project._id, kind: 'sprint', key, archived: false });
+    if (!sprint) return res.status(404).json({ error: `Sprint "${key}" introuvable.` });
+    if (sprint.meta?.status === 'finished') {
+      return conflict(res, 'SPRINT_FINISHED', 'Un sprint terminé ne peut pas devenir le sprint courant : rouvrez-le.');
+    }
+  }
+  const active = await activeSprintOtherThan(req.project._id, key);
+  if (active) {
+    return conflict(res, 'ACTIVE_SPRINT_EXISTS', `« ${active.label} » est actif : il reste le sprint courant jusqu'à sa clôture.`, {
+      activeSprint: { key: active.key, label: active.label },
+    });
+  }
+  const previous = req.project.currentSprint || null;
+  if (previous !== key) {
+    req.project.currentSprint = key;
+    await req.project.save();
+    await logActivity(
+      projectActivity(req.project, req.user, {
+        scope: 'sprint',
+        action: 'sprint.current',
+        field: 'currentSprint',
+        from: previous,
+        to: key,
+        sprints: [previous, key],
+        note: sprint ? `« ${sprint.label} » défini comme sprint courant.` : 'Plus de sprint courant.',
+      })
+    );
+  }
+  res.json({ currentSprint: req.project.currentSprint });
+});
+
+// Unfinished work of a sprint: tasks still in it, and tasks carried over at its closure (where they are now).
+router.get('/:sprintKey/leftovers', async (req, res) => {
+  const sprint = await findSprint(req, res);
+  if (!sprint) return;
+  const ctx = await statusContext(req.project._id);
+  const fields = { taskId: 1, title: 1, status: 1, complexity: 1, assignee: 1, sprint: 1, version: 1, priority: 1, type: 1 };
+  const carriedIds = sprint.meta?.report?.carriedOverTaskIds || [];
+  const find = (match) =>
+    Task.find({ project: req.project._id, ...match }, fields).populate('assignee', 'username displayName color').sort({ taskId: 1 }).lean();
+  const [still, carried] = await Promise.all([find({ sprint: sprint.key }), carriedIds.length ? find({ taskId: { $in: carriedIds } }) : []]);
+  const withDone = (t) => ({ ...t, done: ctx.categoryOf(t.status) === 'done' });
+  res.json({
+    sprint: present(sprint),
+    notDone: still.filter((t) => ctx.categoryOf(t.status) !== 'done').map(withDone),
+    carriedOver: carried.map(withDone),
+  });
+});
+
 router.post('/', ...adminWrite, async (req, res) => {
   const sprint = await createSprint(req.project, req.body || {});
+  await sprintLog(req, sprint, 'sprint.created', `Sprint « ${sprint.label} » créé.`, { startDate: sprint.meta.startDate, endDate: sprint.meta.endDate });
   res.status(201).json({ sprint: present(sprint) });
 });
 
@@ -176,6 +244,7 @@ router.patch('/:sprintKey', ...adminWrite, async (req, res) => {
     return res.status(400).json({ error: 'La date de fin précède la date de début.' });
   }
   await setMeta(sprint, patch);
+  await sprintLog(req, sprint, 'sprint.updated', `Sprint « ${sprint.label} » modifié.`, { changes: Object.keys(b).filter((k) => k !== 'key') });
   res.json({ sprint: present(sprint) });
 });
 
@@ -184,6 +253,7 @@ router.post('/:sprintKey/ready', ...adminWrite, async (req, res) => {
   if (!sprint) return;
   if ((sprint.meta?.status || 'draft') !== 'draft') return conflict(res, 'INVALID_TRANSITION', 'Seul un sprint brouillon peut passer « prêt ».');
   await setMeta(sprint, { status: 'ready' });
+  await sprintLog(req, sprint, 'sprint.ready', `Sprint « ${sprint.label} » marqué prêt.`);
   res.json({ sprint: present(sprint) });
 });
 
@@ -192,6 +262,7 @@ router.post('/:sprintKey/draft', ...adminWrite, async (req, res) => {
   if (!sprint) return;
   if (sprint.meta?.status !== 'ready') return conflict(res, 'INVALID_TRANSITION', 'Seul un sprint « prêt » peut repasser en brouillon.');
   await setMeta(sprint, { status: 'draft' });
+  await sprintLog(req, sprint, 'sprint.draft', `Sprint « ${sprint.label} » repassé en brouillon.`);
   res.json({ sprint: present(sprint) });
 });
 
@@ -258,6 +329,7 @@ router.post('/:sprintKey/close', ...adminWrite, async (req, res) => {
     }
   } else if (mode === 'newSprint') {
     target = await createSprint(req.project, b.carryOver?.newSprint || {});
+    await sprintLog(req, target, 'sprint.created', `Sprint « ${target.label} » créé pour le report.`);
   } else if (mode !== 'backlog') {
     return res.status(400).json({ error: 'Mode de report invalide.', code: 'CARRY_TARGET_INVALID' });
   }
@@ -270,10 +342,13 @@ router.post('/:sprintKey/close', ...adminWrite, async (req, res) => {
   const notDone = inSprint.filter((t) => ctx.categoryOf(t.status) !== 'done');
   const carried = notDone.filter((t) => !keep.has(t.taskId));
   const note = `Report automatique à la clôture de « ${sprint.label} ».`;
+  const carriedActivities = [];
   for (const task of carried) {
-    applyPatchWithHistory(task, { sprint: targetKey }, req.user, note, { categoryOf: ctx.categoryOf });
+    const entries = applyPatchWithHistory(task, { sprint: targetKey }, req.user, note, { categoryOf: ctx.categoryOf });
     await task.save();
+    carriedActivities.push(...taskActivities(req.project, task, entries, req.user, { data: { carryOver: sprint.key } }));
   }
+  await logActivity(carriedActivities);
 
   // 3. Freeze the sprint report.
   const points = (list) => list.reduce((a, t) => a + (t.complexity || 0), 0);
@@ -297,6 +372,14 @@ router.post('/:sprintKey/close', ...adminWrite, async (req, res) => {
   });
   req.project.currentSprint = null;
   await req.project.save();
+  await sprintLog(
+    req,
+    sprint,
+    'sprint.closed',
+    `Sprint « ${sprint.label} » clôturé : ${doneTasks.length} tâche(s) livrée(s), ${carried.length} reportée(s)${target ? ` vers « ${target.label} »` : carried.length ? ' vers le backlog' : ''}.`,
+    { report: sprint.meta.report },
+    { sprints: [targetKey] }
+  );
 
   // 4. Optionally start the target right away.
   if (b.startTarget && target) {
@@ -346,6 +429,7 @@ router.post('/:sprintKey/reopen', ...adminWrite, async (req, res) => {
     return conflict(res, 'ACTIVE_SPRINT_EXISTS', `« ${active.label} » est déjà actif.`, { activeSprint: { key: active.key, label: active.label } });
   }
   await setMeta(sprint, { status: 'active', reopenedAt: new Date().toISOString() });
+  await sprintLog(req, sprint, 'sprint.reopened', `Sprint « ${sprint.label} » rouvert.`);
   req.project.currentSprint = sprint.key;
   await req.project.save();
   res.json({ sprint: present(sprint), currentSprint: req.project.currentSprint });
@@ -371,6 +455,7 @@ router.delete('/:sprintKey', ...adminWrite, async (req, res) => {
     await req.project.save();
   }
   await sprint.deleteOne();
+  await sprintLog(req, sprint, 'sprint.deleted', `Sprint « ${sprint.label} » supprimé.`);
   res.json({ ok: true });
 });
 

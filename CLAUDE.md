@@ -53,8 +53,13 @@ cd client && npx tsc -b && npm run build
   `@unreleased`, dates relatives) partagée par le board, les filtres enregistrés, les dashboards et l'export.
 - **Dashboard** : widgets validés côté serveur (`dashboards/widgets.js`), données via `/analytics`.
 - **Import Jira** : `import/jira/*` — plan complet en dry-run, écriture, idempotence, rollback.
+- **Journal & notifications** : toute écriture métier passe par `logActivity` (`Activity`) et, si
+  quelqu'un doit être prévenu, `notify` (`Notification`). Le client charge les notifications une seule
+  fois au démarrage (pas de WebSocket / polling, choix du propriétaire).
+- **Texte riche** : Markdown restreint (`RichText` / `RichTextEditor`), jamais de HTML brut ; images
+  via `/attachments` → `/api/files/:publicId`.
 
 ## Prochaines étapes identifiées (Lot 2)
 
-Transitions de workflow et WIP, vue backlog classée, édition en masse, notifications et @mentions,
-widgets aging / CFD / créées vs résolues, import du bundle `kydos-project/1`. Voir `docs/FEATURES.md` §10.
+Transitions de workflow et WIP, classement manuel du backlog, widgets aging / CFD / créées vs
+résolues, import du bundle `kydos-project/1`, pièces jointes non image. Voir `docs/FEATURES.md` §12.

@@ -71,17 +71,17 @@ export default function VersionsPanel({ projectKey }: { projectKey: string }) {
                 <tr key={v._id}>
                   <td>
                     <b>{v.label}</b> {v.key === current && <span className="tag pts">★ courante</span>}
-                    {v.meta.description && <div className="text-muted small-text">{v.meta.description}</div>}
+                    {v.meta?.description && <div className="text-muted small-text">{v.meta?.description}</div>}
                   </td>
                   <td>
                     {v.status === 'released' ? (
-                      <span className="tag type">publiée le {fmtDay(v.meta.releasedAt)}</span>
+                      <span className="tag type">publiée le {fmtDay(v.meta?.releasedAt)}</span>
                     ) : (
                       <span className="tag">non publiée</span>
                     )}
                   </td>
-                  <td>{fmtDay(v.meta.startDate)}</td>
-                  <td>{fmtDay(v.meta.releaseDate)}</td>
+                  <td>{fmtDay(v.meta?.startDate)}</td>
+                  <td>{fmtDay(v.meta?.releaseDate)}</td>
                   <td style={{ minWidth: 140 }}>
                     <div className="small-text">
                       {v.stats.doneCount}/{v.stats.taskCount} tâches · {v.stats.points} pts
@@ -151,9 +151,9 @@ function VersionForm({
 }) {
   const [key, setKey] = useState(initial?.key || '');
   const [label, setLabel] = useState(initial?.label || '');
-  const [startDate, setStartDate] = useState(toDateInput(initial?.meta.startDate));
-  const [releaseDate, setReleaseDate] = useState(toDateInput(initial?.meta.releaseDate));
-  const [description, setDescription] = useState(initial?.meta.description || '');
+  const [startDate, setStartDate] = useState(toDateInput(initial?.meta?.startDate));
+  const [releaseDate, setReleaseDate] = useState(toDateInput(initial?.meta?.releaseDate));
+  const [description, setDescription] = useState(initial?.meta?.description || '');
 
   return (
     <div className="sprint-form">

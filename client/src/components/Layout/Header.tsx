@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useProject, useProjects } from '../../api/projects';
 import Avatar from '../common/Avatar';
+import NotificationBell from './NotificationBell';
 import type { Theme } from '../../types';
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -29,8 +30,10 @@ export default function Header() {
   const navItems = projectKey
     ? [
         { to: `/projects/${projectKey}/board`, label: 'Board', active: section === 'board' || section === 'tasks' },
+        { to: `/projects/${projectKey}/planning`, label: 'Planification', active: section === 'planning' },
         { to: `/projects/${projectKey}/dashboards`, label: 'Dashboards', active: section === 'dashboards' },
         { to: `/projects/${projectKey}/events`, label: 'Rituels', active: section === 'events' },
+        { to: `/projects/${projectKey}/activity`, label: 'Journal', active: section === 'activity' },
         { to: `/projects/${projectKey}/settings/general`, label: 'Paramètres', active: section === 'settings' || section === 'admin' },
       ]
     : [];
@@ -74,6 +77,7 @@ export default function Header() {
         <div className="header-spacer" />
 
         <div className="header-actions">
+          {user && <NotificationBell />}
           <div className="theme-switcher">
             {themes.map((t) => (
               <button key={t} className={theme === t ? 'active' : ''} onClick={() => setTheme(t)}>

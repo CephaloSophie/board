@@ -20,11 +20,16 @@ const importRoutes = require('./routes/import.routes');
 const exportRoutes = require('./routes/export.routes');
 const dashboardsRoutes = require('./routes/dashboards.routes');
 const analyticsRoutes = require('./routes/analytics.routes');
+const activityRoutes = require('./routes/activity.routes');
+const notificationsRoutes = require('./routes/notifications.routes');
+const attachmentsRoutes = require('./routes/attachments.routes');
 
 const app = express();
 app.use(cors({ origin: clientOrigin === '*' ? true : clientOrigin.split(','), credentials: true }));
 // Large limit on the import endpoints only (Jira exports can weigh several MB).
 app.use('/api/projects/:projectKey/import', express.json({ limit: '25mb' }));
+// Base64 images (8 MB decoded ≈ 11 MB encoded).
+app.use('/api/projects/:projectKey/attachments', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -44,6 +49,11 @@ mount('/api/projects/:projectKey/import', importRoutes);
 mount('/api/projects/:projectKey/export', exportRoutes);
 mount('/api/projects/:projectKey/dashboards', dashboardsRoutes);
 mount('/api/projects/:projectKey/analytics', analyticsRoutes);
+mount('/api/projects/:projectKey/activity', activityRoutes.projectRouter);
+mount('/api/projects/:projectKey/attachments', attachmentsRoutes.projectRouter);
+mount('/api/activity', activityRoutes.globalRouter);
+mount('/api/notifications', notificationsRoutes);
+mount('/api/files', attachmentsRoutes.fileRouter);
 
 app.use('/api', (req, res) => res.status(404).json({ error: `Route inconnue : ${req.method} ${req.originalUrl}` }));
 

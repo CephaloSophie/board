@@ -8,6 +8,8 @@ import EventsPage from './pages/EventsPage';
 import AdminPage, { LegacyAdminRedirect } from './pages/AdminPage';
 import ProjectSettingsPage from './pages/ProjectSettingsPage';
 import DashboardPage from './pages/DashboardPage';
+import PlanningPage from './pages/PlanningPage';
+import ActivityPage from './pages/ActivityPage';
 import Layout from './components/Layout/Layout';
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -32,6 +34,8 @@ export default function App() {
                 <Route path="/projects/:projectKey/board" element={<BoardPage />} />
                 <Route path="/projects/:projectKey/dashboards/:dashboardId?" element={<DashboardPage />} />
                 <Route path="/projects/:projectKey/events" element={<EventsPage />} />
+                <Route path="/projects/:projectKey/planning" element={<PlanningPage />} />
+                <Route path="/projects/:projectKey/activity" element={<ActivityPage />} />
                 <Route path="/projects/:projectKey/tasks/:taskId" element={<TaskPage />} />
                 <Route path="/projects/:projectKey/settings/:tab?" element={<ProjectSettingsPage />} />
                 <Route path="/projects/:projectKey/admin" element={<LegacyAdminRedirect />} />

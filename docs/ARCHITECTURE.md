@@ -35,12 +35,15 @@ seed/seed.js                 import de tasks.json (projet KB), n'écrase rien sa
 |---|---|
 | `Project` | `key` unique ; `access` (open / members) + `members[{user, role}]` ; `currentSprint` piloté par le cycle de vie ; timezone, workingDays, estimation, defaults ; archivage |
 | `Taxonomy` | une collection pour `status, priority, area, type, techno, category, version, sprint, eventType` ; les tâches référencent la **clé** ; `meta` libre mais clés de cycle de vie réservées ; index unique `(project, kind, key)` |
-| `Task` | champs métier + `labels, parent, components, fixVersions, affectsVersions, sprintHistory, dueDate, resolvedAt, statusChangedAt, durationHours` ; `external` (source, key, id, url, importJob, importHash) avec index unique partiel ; `comments[]` (auteur ou `authorLabel`, `externalId`) ; `history[]` |
+| `Task` | champs métier + `labels, parent, components, fixVersions, affectsVersions, sprintHistory, dueDate, resolvedAt, statusChangedAt, durationHours` ; `external` (source, key, id, url, importJob, importHash) avec index unique partiel ; `comments[]` (auteur ou `authorLabel`, `externalId`, `parent`, `mentions`, `reactions[{emoji, users}]`) ; `history[]` (champs suivis, textes en extrait, événements `comment`) |
 | `SavedFilter` | propriétaire, filtres assainis, vue / regroupement / tri, visibilité, `starredBy`, `defaultFor` |
 | `Dashboard` | widgets `{id, type, layout, source, config}`, `globalFilters`, `revision` (concurrence optimiste) |
 | `ImportJob` | fichiers (sha1), options, mapping, compteurs, lignes du rapport, tâches créées, valeurs avant / après des mises à jour, taxonomies créées |
 | `Event` | rituel : type, sprint, participants, tâches liées, décisions, actions, ADR |
 | `Counter` | séquence par projet pour les identifiants `KB-042` |
+| `Activity` | journal projet : `at, actor, scope, action, taskId, field, from, to, note, sprints[], versions[], data` ; index `(project, at)`, `(project, actor)`, `(project, taskId)`, `(project, sprints)` |
+| `Notification` | `user, project, type, taskId, commentId, actor, excerpt, read` ; index `(user, read, createdAt)` |
+| `Attachment` | image binaire (`data`), `publicId` aléatoire unique, type vérifié, uploader, tâche |
 
 ### Mécanismes transverses
 
@@ -59,6 +62,13 @@ seed/seed.js                 import de tasks.json (projet KB), n'écrase rien sa
   `dryRun: false`, écrit dans l'ordre taxonomies → compteur → créations (`insertMany`,
   `timestamps: false`) → mises à jour (`applyPatchWithHistory`) → projet → job. Idempotence par
   `external.id / external.key` et `importHash`.
+- **Journal et notifications** : les routes appellent `logActivity(taskActivities(...))` ou
+  `projectActivity(...)` (`utils/activity.js`) après chaque écriture métier, et `notify()`
+  (`utils/notify.js`, destinataires par priorité, jamais l'auteur, erreurs journalisées sans faire
+  échouer l'action). `Task.history` reste la source des burndowns ; `Activity` couvre en plus le
+  cycle de vie des sprints / versions, les imports et les actions groupées.
+- **Texte riche** : Markdown restreint rendu en éléments React (`RichText.tsx`), URL filtrées
+  (http(s), `/api/files/`, `/projects/…`), couleurs validées ; images stockées dans `Attachment`.
 - **Analyses** : chaque partie de filtre (global, filtre enregistré, critères du widget) est compilée
   séparément puis combinée en `$and`.
 

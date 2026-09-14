@@ -5,7 +5,7 @@ const { Project } = require('../../models/Project');
 const { Counter } = require('../../models/Counter');
 const { ImportJob } = require('../../models/ImportJob');
 const { statusCategoryOf } = require('../../utils/taxonomyMeta');
-const { applyPatchWithHistory, TRACKED_FIELDS, PASSTHROUGH_FIELDS } = require('../../utils/taskHistory');
+const { applyPatchWithHistory, TRACKED_FIELDS, TEXT_FIELDS, PASSTHROUGH_FIELDS } = require('../../utils/taskHistory');
 const { hoursOf, secondsToDuration } = require('../../utils/duration');
 const { compareVersions } = require('../../utils/versions');
 const { normalizeName, slug, sha1, stableStringify, normalizeText, importError } = require('./text');
@@ -641,7 +641,7 @@ async function runJiraImport({ project, user, bundle, mapping: mappingInput, opt
       }
     }
 
-    const trackedPatchFields = new Set([...TRACKED_FIELDS, ...PASSTHROUGH_FIELDS]);
+    const trackedPatchFields = new Set([...TRACKED_FIELDS, ...TEXT_FIELDS, ...PASSTHROUGH_FIELDS]);
     for (const plan of plans.filter((p) => p.action === 'update')) {
       const task = await Task.findById(plan.existing._id);
       if (!task) continue;
@@ -714,7 +714,7 @@ async function rollbackImport({ project, user, jobId }) {
   if (deletable.length) report.tasksDeleted = (await Task.deleteMany({ _id: { $in: deletable.map((t) => t._id) } })).deletedCount;
 
   const { categoryOf } = await require('../../utils/taxonomyMeta').statusContext(project._id);
-  const tracked = new Set([...TRACKED_FIELDS, ...PASSTHROUGH_FIELDS]);
+  const tracked = new Set([...TRACKED_FIELDS, ...TEXT_FIELDS, ...PASSTHROUGH_FIELDS]);
   for (const u of job.updates) {
     const task = await Task.findById(u.task);
     if (!task) continue;

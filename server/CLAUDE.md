@@ -7,11 +7,14 @@ src/
   index.js              montage (mount() = catchAsyncErrors), JSON 25 Mo sur /import, 404 /api, handler {error, code, missing}
   middleware/auth.js    requireAuth, requireRole (rôle global)
   middleware/project.js loadProject (req.project, req.projectRole), requireProjectRole, requireWriteAccess, blockWritesIfArchived
-  models/               User, Project (members, access…), Taxonomy, Task, Event, Counter, SavedFilter, Dashboard, ImportJob
+  models/               User, Project (members, access…), Taxonomy, Task, Event, Counter, SavedFilter, Dashboard, ImportJob,
+                        Activity (journal), Notification, Attachment (images)
   routes/               auth, users, projects, members, taxonomies, sprints, versions, tasks, events,
-                        savedFilters, dashboards, analytics, import, export
+                        savedFilters, dashboards, analytics, import, export, activity (projet + global),
+                        notifications, attachments (upload projet + /api/files public)
   utils/                taskQuery (filtres), taskHistory (historique), taxonomyMeta (catégories/meta),
-                        duration, versions, asyncErrors, httpError, jwt, password
+                        duration, versions, asyncErrors, httpError, jwt, password,
+                        activity (logActivity, taskActivities, projectActivity), notify (mentions, excerptOf, notify)
   analytics/timeline.js valueAt + sprintTimeline (burndown/burnup)
   dashboards/widgets.js catalogue, validation et modèles de widgets
   import/csv.js         CSV RFC 4180 (lecture/écriture)
@@ -22,7 +25,7 @@ src/
 test/
   helpers.js            startTestServer() : base *_test vidée, users admin/dev, client fetch
   fixtures/jira/        exports Jira de référence (CSV Cloud, JSON search, sprints, versions, external-system)
-  *.test.js             api, csv, socle, migration, savedFilters, sprints, import, importExternal, dashboards
+  *.test.js             api, csv, socle, migration, savedFilters, sprints, import, importExternal, dashboards, collaboration
 ```
 
 ## Conventions
@@ -39,6 +42,9 @@ test/
 - `meta` de taxonomie : `mergeMeta` ; les clés de cycle de vie (sprint/version) ne s'écrivent que
   dans `sprints.routes.js` / `versions.routes.js` ; utiliser `markModified('meta')`.
 - Payloads libres assainis (`sanitizeFilters`, `sanitizeWidgets`).
+- Après une écriture métier : `logActivity(taskActivities(project, task, entries, user))` (ou
+  `projectActivity` pour sprints / versions / imports) puis `notify()` si des personnes sont concernées.
+  Ces helpers n'échouent jamais la requête.
 - Nouveau widget : l'ajouter à `REGISTRY` (`dashboards/widgets.js`), si besoin une route dans
   `analytics.routes.js`, puis côté client `registry.ts`, `Widgets.tsx`, `WidgetConfigModal.tsx`.
 

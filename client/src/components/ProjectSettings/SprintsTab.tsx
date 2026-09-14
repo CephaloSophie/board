@@ -156,7 +156,9 @@ function SprintCard({
   onDelete: () => void;
 }) {
   const status = SPRINT_STATUS_META[sprint.status] || SPRINT_STATUS_META.draft;
-  const { stats, meta } = sprint;
+  // Sprint rows created outside the lifecycle (taxonomy admin, imports) may lack meta / stats.
+  const stats = sprint.stats || { taskCount: 0, points: 0, doneCount: 0, donePoints: 0 };
+  const meta = sprint.meta || {};
   const pct = stats.points ? Math.round((stats.donePoints / stats.points) * 100) : 0;
   const left = sprint.status === 'active' ? daysUntil(meta.endDate) : null;
   const report = meta.report;
@@ -239,9 +241,9 @@ function SprintForm({
   onCancel: () => void;
 }) {
   const [label, setLabel] = useState(initial?.label || '');
-  const [startDate, setStartDate] = useState(toDateInput(initial?.meta.startDate));
-  const [endDate, setEndDate] = useState(toDateInput(initial?.meta.endDate));
-  const [goal, setGoal] = useState(initial?.meta.goal || '');
+  const [startDate, setStartDate] = useState(toDateInput(initial?.meta?.startDate));
+  const [endDate, setEndDate] = useState(toDateInput(initial?.meta?.endDate));
+  const [goal, setGoal] = useState(initial?.meta?.goal || '');
 
   return (
     <div className="sprint-form">
@@ -278,7 +280,7 @@ function SprintForm({
   );
 }
 
-function StartSprintDialog({
+export function StartSprintDialog({
   sprint,
   onConfirm,
   onCancel,
@@ -289,9 +291,9 @@ function StartSprintDialog({
   onCancel: () => void;
   busy: boolean;
 }) {
-  const [startDate, setStartDate] = useState(toDateInput(sprint.meta.startDate) || todayInput());
-  const [endDate, setEndDate] = useState(toDateInput(sprint.meta.endDate));
-  const [goal, setGoal] = useState(sprint.meta.goal || '');
+  const [startDate, setStartDate] = useState(toDateInput(sprint.meta?.startDate) || todayInput());
+  const [endDate, setEndDate] = useState(toDateInput(sprint.meta?.endDate));
+  const [goal, setGoal] = useState(sprint.meta?.goal || '');
   const invalid = !!(startDate && endDate && endDate < startDate);
 
   return (
@@ -319,7 +321,7 @@ function StartSprintDialog({
             <input type="text" value={goal} onChange={(e) => setGoal(e.target.value)} />
           </div>
           <div className="notice">
-            Engagement enregistré au démarrage : <b>{sprint.stats.taskCount}</b> tâche(s) · <b>{sprint.stats.points}</b> points.
+            Engagement enregistré au démarrage : <b>{sprint.stats?.taskCount}</b> tâche(s) · <b>{sprint.stats?.points}</b> points.
           </div>
           {invalid && <div className="form-error">La date de fin précède la date de début.</div>}
           <div className="row" style={{ justifyContent: 'flex-end' }}>
@@ -340,7 +342,7 @@ function StartSprintDialog({
   );
 }
 
-function CloseSprintDialog({
+export function CloseSprintDialog({
   projectKey,
   sprint,
   onCancel,
@@ -422,7 +424,7 @@ function CloseSprintDialog({
                 <div className="l">Non terminées</div>
               </div>
               <div className="kpi">
-                <div className="v">{sprint.meta.startSnapshot?.committedPoints ?? '—'}</div>
+                <div className="v">{sprint.meta?.startSnapshot?.committedPoints ?? '—'}</div>
                 <div className="l">Engagé au démarrage</div>
               </div>
             </div>
