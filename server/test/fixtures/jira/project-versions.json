@@ -1,0 +1,5 @@
+[
+  { "self": "https://example.atlassian.net/rest/api/3/version/10099", "id": "10099", "name": "0.9.0", "description": "Bêta privée", "archived": false, "released": true, "releaseDate": "2026-07-15", "userReleaseDate": "15/Jul/26", "projectId": 10000 },
+  { "self": "https://example.atlassian.net/rest/api/3/version/10100", "id": "10100", "name": "1.0.0", "description": "Lancement public", "archived": false, "released": false, "startDate": "2026-08-24", "releaseDate": "2026-09-30", "overdue": false, "userStartDate": "24/Aug/26", "userReleaseDate": "30/Sep/26", "projectId": 10000 },
+  { "self": "https://example.atlassian.net/rest/api/3/version/10101", "id": "10101", "name": "1.1.0", "archived": false, "released": false, "releaseDate": "2026-10-30", "overdue": false, "userReleaseDate": "30/Oct/26", "projectId": 10000 }
+]

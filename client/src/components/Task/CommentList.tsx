@@ -4,9 +4,11 @@ import { useAddComment, useDeleteComment } from '../../api/tasks';
 import { useAuth } from '../../context/AuthContext';
 import { fmtDate } from '../../utils/format';
 import Avatar from '../common/Avatar';
+import { useProjectRole } from '../../hooks/useProjectRole';
 
-export default function CommentList({ projectKey, task }: { projectKey: string; task: Task }) {
+export default function CommentList({ projectKey, task, readOnly }: { projectKey: string; task: Task; readOnly?: boolean }) {
   const { user } = useAuth();
+  const { isAdmin } = useProjectRole(projectKey);
   const addComment = useAddComment(projectKey);
   const deleteComment = useDeleteComment(projectKey);
   const [text, setText] = useState('');
@@ -20,13 +22,14 @@ export default function CommentList({ projectKey, task }: { projectKey: string; 
     <div>
       {task.comments.map((c) => {
         const author = typeof c.author === 'object' ? c.author : null;
-        const canDelete = author?._id === user?.id || user?.role === 'superadmin';
+        const canDelete = !readOnly && (author?._id === user?.id || isAdmin);
         return (
           <div className="comment" key={c._id}>
-            <Avatar name={author?.displayName || '?'} color={author?.color} size="sm" />
+            <Avatar name={author?.displayName || c.authorLabel || '?'} color={author?.color || '#6b7280'} size="sm" />
             <div className="comment__body">
               <div className="comment__meta">
-                <b>{author?.displayName || 'Utilisateur'}</b>
+                <b>{author?.displayName || c.authorLabel || 'Utilisateur'}</b>
+                {!author && c.authorLabel && <span className="tag">Jira</span>}
                 <span>{fmtDate(c.createdAt)}</span>
                 {c.editedAt && <span>(modifié)</span>}
                 {canDelete && (
@@ -46,7 +49,7 @@ export default function CommentList({ projectKey, task }: { projectKey: string; 
       })}
       {task.comments.length === 0 && <div className="text-muted" style={{ fontSize: 12 }}>Aucun commentaire.</div>}
 
-      <div className="comment-form">
+      {!readOnly && <div className="comment-form">
         <textarea
           placeholder="Ajouter un commentaire…"
           value={text}
@@ -58,7 +61,7 @@ export default function CommentList({ projectKey, task }: { projectKey: string; 
         <button className="btn primary" onClick={submit} disabled={!text.trim() || addComment.isPending}>
           Envoyer
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

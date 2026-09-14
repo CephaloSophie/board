@@ -1,43 +1,63 @@
 import { useState } from 'react';
-import type { PublicUser } from '../../types';
-import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../../api/users';
+import { useQuery } from '@tanstack/react-query';
+import { errorMessage, get } from '../../api/client';
+import { useCreateUser, useDeleteUser, useUpdateUser } from '../../api/users';
+import { useAuth } from '../../context/AuthContext';
+import type { PublicUser, Role } from '../../types';
 import Avatar from '../common/Avatar';
 
+// Global account administration (superadmin): create, edit, reset password,
+// deactivate / reactivate.
 export default function UsersAdmin() {
-  const { data: users } = useUsers();
+  const { user: me } = useAuth();
+  const { data: users } = useQuery({
+    queryKey: ['users', 'all'],
+    queryFn: () => get<{ users: PublicUser[] }>('/users?includeInactive=1').then((r) => r.users),
+  });
   const createUser = useCreateUser();
   const [creating, setCreating] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const visible = (users || []).filter((u) => showInactive || u.active);
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+      <div className="section-head">
         <h2 className="mt-0">Utilisateurs</h2>
         <button className="btn primary small" onClick={() => setCreating(true)}>
           + Nouvel utilisateur
         </button>
       </div>
-      <p className="text-muted" style={{ fontSize: 12.5 }}>
-        Le super admin crée les comptes des développeurs et gère les rôles.
+      <p className="text-muted section-intro">
+        Comptes globaux de l'application. Les droits sur chaque projet se règlent dans Paramètres du projet → Membres & rôles.
       </p>
+      <label className="row radio" style={{ marginBottom: 8 }}>
+        <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        Afficher les comptes désactivés
+      </label>
+      {error && <div className="form-error">{error}</div>}
 
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Nom</th>
-            <th>Identifiant</th>
-            <th>Email</th>
-            <th>Rôle</th>
-            <th>Statut</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users?.map((u) => (
-            <UserRow key={u.id} user={u} />
-          ))}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th />
+              <th>Nom affiché</th>
+              <th>Identifiant</th>
+              <th>Email</th>
+              <th>Rôle global</th>
+              <th>Statut</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((u) => (
+              <UserRow key={u.id} user={u} isSelf={u.id === me?.id} onError={setError} />
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {creating && (
         <NewUserForm
@@ -52,42 +72,67 @@ export default function UsersAdmin() {
   );
 }
 
-function UserRow({ user }: { user: PublicUser }) {
+function UserRow({ user, isSelf, onError }: { user: PublicUser; isSelf: boolean; onError: (m: string | null) => void }) {
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
-  const [role, setRole] = useState(user.role);
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [email, setEmail] = useState(user.email || '');
+
+  async function save(data: Partial<PublicUser> & { password?: string }) {
+    onError(null);
+    try {
+      await updateUser.mutateAsync({ id: user.id, data });
+    } catch (e) {
+      onError(errorMessage(e));
+    }
+  }
 
   return (
-    <tr>
+    <tr style={user.active ? undefined : { opacity: 0.55 }}>
       <td>
-        <Avatar name={user.displayName} color={user.color} size="sm" />
+        <label title="Couleur">
+          <Avatar name={user.displayName} color={user.color} size="sm" />
+          <input type="color" value={user.color} onChange={(e) => save({ color: e.target.value })} style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }} />
+        </label>
       </td>
-      <td>{user.displayName}</td>
-      <td style={{ fontFamily: 'var(--mono)' }}>{user.username}</td>
-      <td className="text-muted">{user.email || '—'}</td>
       <td>
-        <select
-          value={role}
-          onChange={(e) => {
-            const next = e.target.value as PublicUser['role'];
-            setRole(next);
-            updateUser.mutate({ id: user.id, data: { role: next } });
-          }}
-        >
-          <option value="developer">developer</option>
-          <option value="superadmin">superadmin</option>
+        <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} onBlur={() => displayName.trim() && displayName !== user.displayName && save({ displayName: displayName.trim() })} />
+      </td>
+      <td className="mono">{user.username}</td>
+      <td>
+        <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => email !== (user.email || '') && save({ email })} />
+      </td>
+      <td>
+        <select value={user.role} disabled={isSelf} onChange={(e) => save({ role: e.target.value as Role })}>
+          <option value="developer">développeur</option>
+          <option value="superadmin">super admin</option>
         </select>
       </td>
       <td>{user.active ? 'Actif' : 'Désactivé'}</td>
-      <td>
+      <td className="nowrap">
         <button
-          className="btn danger small"
+          className="btn small ghost"
           onClick={() => {
-            if (confirm(`Désactiver ${user.displayName} ?`)) deleteUser.mutate(user.id);
+            const password = prompt(`Nouveau mot de passe pour ${user.displayName} (8 caractères minimum) :`);
+            if (password && password.length >= 8) save({ password });
+            else if (password) onError('Mot de passe trop court (8 caractères minimum).');
           }}
         >
-          Désactiver
+          Mot de passe…
         </button>
+        {user.active ? (
+          <button
+            className="btn small danger"
+            disabled={isSelf}
+            onClick={() => confirm(`Désactiver ${user.displayName} ?`) && deleteUser.mutate(user.id)}
+          >
+            Désactiver
+          </button>
+        ) : (
+          <button className="btn small" onClick={() => save({ active: true })}>
+            Réactiver
+          </button>
+        )}
       </td>
     </tr>
   );
@@ -98,7 +143,7 @@ function NewUserForm({
   onSubmit,
 }: {
   onClose: () => void;
-  onSubmit: (data: { username: string; displayName: string; password: string; role: string; email?: string; color?: string }) => Promise<void>;
+  onSubmit: (data: { username: string; displayName: string; password: string; role: string; email?: string }) => Promise<void>;
 }) {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -109,10 +154,14 @@ function NewUserForm({
 
   async function submit() {
     setErr(null);
+    if (password.length < 8) {
+      setErr('Mot de passe trop court (8 caractères minimum).');
+      return;
+    }
     try {
       await onSubmit({ username: username.trim().toLowerCase(), displayName: displayName.trim(), email, password, role });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erreur.');
+      setErr(errorMessage(e));
     }
   }
 
@@ -128,28 +177,28 @@ function NewUserForm({
         <div className="stack">
           <div className="field">
             <label>Nom affiché</label>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
           <div className="field">
             <label>Identifiant</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div className="field">
             <label>Email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="field">
             <label>Mot de passe</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div className="field">
-            <label>Rôle</label>
+            <label>Rôle global</label>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="developer">developer</option>
-              <option value="superadmin">superadmin</option>
+              <option value="developer">développeur</option>
+              <option value="superadmin">super admin</option>
             </select>
           </div>
-          {err && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}
+          {err && <div className="form-error">{err}</div>}
           <button className="btn primary" disabled={!username || !displayName || !password} onClick={submit}>
             Créer
           </button>

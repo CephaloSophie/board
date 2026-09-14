@@ -16,5 +16,5 @@ COPY tasks.json ./tasks.json
 COPY --from=client-build /app/client/dist ./client/dist
 
 WORKDIR /app/server
-EXPOSE 4000
+EXPOSE 7002
 CMD ["node", "src/index.js"]

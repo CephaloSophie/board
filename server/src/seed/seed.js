@@ -17,6 +17,8 @@ const { hashPassword } = require('../utils/password');
 
 const DATA_PATH = path.join(__dirname, '..', '..', '..', 'tasks.json');
 const DEFAULT_PASSWORD = '@bloardKydos';
+const OVERWRITE = process.argv.includes('--overwrite');
+const WRITE_OP = OVERWRITE ? '$set' : '$setOnInsert';
 
 const DONE_STATUS_IDS = new Set(['tested', 'finished', 'confirmed']);
 
@@ -56,10 +58,50 @@ function toPoints(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+const toText = (v) => (Array.isArray(v) ? v.join('\n') : v === null || v === undefined ? '' : String(v));
+const toList = (v) =>
+  (Array.isArray(v) ? v : v === null || v === undefined || v === '' ? [] : [v]).map((x) => String(x));
+
+// A few legacy rows (KB-390…395) were written with shifted fields: `type`
+// holds the story points, `complexity` the duration, `description` the
+// acceptance bullets, `acceptance` the implementation note and
+// `estimate`/`duration` the real description. Put them back in place, then
+// coerce every field to the type the Task schema expects.
+function normalizeLegacyTask(t) {
+  const shifted = typeof t.type === 'number' && Array.isArray(t.description);
+  const src = shifted
+    ? {
+        ...t,
+        type: 'feature',
+        complexity: t.type,
+        duration: t.complexity,
+        estimate: t.complexity,
+        description: t.estimate,
+        acceptance: t.description,
+        instructions: [...toList(t.instructions), ...toList(t.acceptance)],
+      }
+    : t;
+  return {
+    ...src,
+    title: toText(src.title),
+    description: toText(src.description),
+    type: toText(src.type),
+    module: toText(src.module),
+    estimate: toText(src.estimate),
+    duration: toText(src.duration),
+    spec: toText(src.spec),
+    instructions: toList(src.instructions),
+    acceptance: toList(src.acceptance),
+  };
+}
+
+// By default the seed only inserts what is missing, so re-running it never
+// wipes edits made in the app (statuses, sprints, history…). Pass
+// --overwrite to force every field back to the tasks.json values.
 async function upsertTaxonomy(projectId, kind, key, fields) {
   return Taxonomy.findOneAndUpdate(
     { project: projectId, kind, key },
-    { $set: { ...fields, project: projectId, kind, key } },
+    { [WRITE_OP]: { ...fields, project: projectId, kind, key } },
     { new: true, upsert: true }
   );
 }
@@ -90,7 +132,7 @@ async function run() {
   const project = await Project.findOneAndUpdate(
     { key: 'KB' },
     {
-      $set: {
+      [WRITE_OP]: {
         key: 'KB',
         name: meta.project,
         vendor: meta.vendor,
@@ -191,7 +233,9 @@ async function run() {
 
   console.log(`[seed] Seeding ${data.tasks.length} tasks...`);
   let maxSeq = 0;
-  for (const t of data.tasks) {
+  console.log(`[seed] Mode: ${OVERWRITE ? 'overwrite (--overwrite)' : 'insert missing only'}`);
+  for (const raw of data.tasks) {
+    const t = normalizeLegacyTask(raw);
     const numMatch = /(\d+)$/.exec(t.id);
     if (numMatch) maxSeq = Math.max(maxSeq, parseInt(numMatch[1], 10));
 
@@ -208,7 +252,7 @@ async function run() {
     await Task.findOneAndUpdate(
       { project: project._id, taskId: t.id },
       {
-        $set: {
+        [WRITE_OP]: {
           project: project._id,
           taskId: t.id,
           title: t.title,

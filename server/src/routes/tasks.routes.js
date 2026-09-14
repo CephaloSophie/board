@@ -1,79 +1,92 @@
 const { Router } = require('express');
 const { Task } = require('../models/Task');
+const { SavedFilter, sanitizeFilters } = require('../models/SavedFilter');
 const { nextTaskNumber } = require('../models/Counter');
 const { requireAuth } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const {
+  loadProject,
+  requireProjectRole,
+  requireWriteAccess,
+  blockWritesIfArchived,
+} = require('../middleware/project');
 const { applyPatchWithHistory } = require('../utils/taskHistory');
+const { statusContext } = require('../utils/taxonomyMeta');
+const {
+  compileTaskQuery,
+  parseTaskQueryParams,
+  overlayFilters,
+  parseSort,
+  SUMMARY_PROJECTION,
+} = require('../utils/taskQuery');
+const { hoursOf } = require('../utils/duration');
 
 const router = Router({ mergeParams: true });
-router.use(requireAuth, loadProject);
+router.use(requireAuth, loadProject, blockWritesIfArchived, requireWriteAccess);
 
-function toArray(v) {
-  if (v === undefined || v === null || v === '') return [];
-  return Array.isArray(v) ? v : String(v).split(',').filter(Boolean);
-}
+const USER_FIELDS = 'username displayName color';
+
+const toDateOrNull = (v) => {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+const toLabels = (v) =>
+  [...new Set((Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : []).map((s) => String(s).trim()).filter(Boolean))];
 
 // GET /api/projects/:projectKey/tasks
-// Supports repeatable multi-select filters (?status=a&status=b or ?status=a,b)
-// on every taxonomy dimension, plus assignee, sprint and free-text search
-// across id / title / description / instructions / acceptance.
+// Filters: repeatable ?status=a&status=b on every dimension, dynamic tokens
+// (@me, @current, @open, @none…), statusCategory, labels, dates, search.
+// Extras: filterId (saved filter, explicit params override it),
+// fields=summary (no history/comments), sort=key:asc|desc, limit/skip
+// (X-Total-Count header).
 router.get('/', async (req, res) => {
-  const q = req.query;
-  const filter = { project: req.project._id };
-
-  const multiFields = ['status', 'priority', 'type', 'category', 'techno', 'version', 'sprint', 'area'];
-  for (const field of multiFields) {
-    const values = toArray(q[field]);
-    if (values.length) filter[field] = { $in: values };
+  let filters = parseTaskQueryParams(req.query);
+  if (req.query.filterId) {
+    const saved = await SavedFilter.findOne({ _id: req.query.filterId, project: req.project._id });
+    const visible = saved && (saved.visibility === 'shared' || String(saved.owner) === String(req.user._id));
+    if (!visible) return res.status(404).json({ error: 'Filtre introuvable ou non partagé.', code: 'FILTER_NOT_FOUND' });
+    filters = overlayFilters(sanitizeFilters(saved.filters), filters);
   }
 
-  const assignees = toArray(q.assignee);
-  if (assignees.length) {
-    filter.assignee = { $in: assignees.map((a) => (a === 'unassigned' ? null : a)) };
+  const { match, warnings } = await compileTaskQuery(filters, { project: req.project, user: req.user });
+  let query = Task.find(match)
+    .populate('assignee', USER_FIELDS)
+    .populate('reporter', USER_FIELDS)
+    .sort(parseSort(req.query.sort));
+  if (req.query.fields === 'summary') query = query.select(SUMMARY_PROJECTION);
+
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 0, 0), 1000);
+  if (limit) {
+    const skip = Math.max(parseInt(req.query.skip, 10) || 0, 0);
+    query = query.skip(skip).limit(limit);
+    res.set('X-Total-Count', String(await Task.countDocuments(match)));
   }
 
-  let tasks = await Task.find(filter)
-    .populate('assignee', 'username displayName color')
-    .populate('reporter', 'username displayName color')
-    .sort({ taskId: 1 });
-
-  if (q.search) {
-    const needle = String(q.search).toLowerCase();
-    tasks = tasks.filter((t) => {
-      const hay = [
-        t.taskId,
-        t.title,
-        t.module,
-        t.description,
-        ...(t.instructions || []),
-        ...(t.acceptance || []),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(needle);
-    });
-  }
-
-  res.json({ tasks });
+  const tasks = await query;
+  res.json({ tasks, warnings });
 });
 
 router.get('/:taskId', async (req, res) => {
   const task = await Task.findOne({ project: req.project._id, taskId: req.params.taskId })
-    .populate('assignee', 'username displayName color')
-    .populate('reporter', 'username displayName color')
-    .populate('comments.author', 'username displayName color')
-    .populate('history.by', 'username displayName color');
+    .populate('assignee', USER_FIELDS)
+    .populate('reporter', USER_FIELDS)
+    .populate('comments.author', USER_FIELDS)
+    .populate('history.by', USER_FIELDS);
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
   res.json({ task });
 });
 
 router.post('/', async (req, res) => {
   const body = req.body || {};
-  if (!body.title || !body.status) {
+  const defaults = req.project.defaults || {};
+  const status = body.status || defaults.status;
+  if (!body.title || !status) {
     return res.status(400).json({ error: 'title et status sont requis.' });
   }
+  const { categoryOf } = await statusContext(req.project._id);
   const seq = await nextTaskNumber(req.project.key);
   const taskId = `${req.project.key}-${String(seq).padStart(3, '0')}`;
+  const now = new Date();
 
   const task = await Task.create({
     project: req.project._id,
@@ -82,37 +95,43 @@ router.post('/', async (req, res) => {
     description: body.description || '',
     area: body.area,
     module: body.module,
-    type: body.type,
-    status: body.status,
-    priority: body.priority,
+    type: body.type || defaults.type,
+    status,
+    priority: body.priority || defaults.priority,
     version: body.version,
     sprint: body.sprint || null,
     techno: body.techno,
     category: body.category,
+    labels: toLabels(body.labels),
+    parent: body.parent || null,
     estimate: body.estimate,
     duration: body.duration,
+    durationHours: hoursOf(body.duration),
     complexity: body.complexity || 0,
     spec: body.spec,
     instructions: body.instructions || [],
     acceptance: body.acceptance || [],
     assignee: body.assignee || null,
     reporter: req.user._id,
+    dueDate: toDateOrNull(body.dueDate),
+    statusChangedAt: now,
+    resolvedAt: categoryOf(status) === 'done' ? now : null,
     history: [
       {
-        at: new Date(),
+        at: now,
         by: req.user._id,
         byLabel: req.user.displayName,
         field: 'created',
         from: null,
-        to: body.status,
+        to: status,
         note: 'Tâche créée.',
       },
     ],
   });
 
   const populated = await task.populate([
-    { path: 'assignee', select: 'username displayName color' },
-    { path: 'reporter', select: 'username displayName color' },
+    { path: 'assignee', select: USER_FIELDS },
+    { path: 'reporter', select: USER_FIELDS },
   ]);
   res.status(201).json({ task: populated });
 });
@@ -122,19 +141,20 @@ router.patch('/:taskId', async (req, res) => {
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
 
   const { note, ...patch } = req.body || {};
-  applyPatchWithHistory(task, patch, req.user, note);
+  const { categoryOf } = await statusContext(req.project._id);
+  applyPatchWithHistory(task, patch, req.user, note, { categoryOf });
   await task.save();
 
   const populated = await task.populate([
-    { path: 'assignee', select: 'username displayName color' },
-    { path: 'reporter', select: 'username displayName color' },
-    { path: 'comments.author', select: 'username displayName color' },
-    { path: 'history.by', select: 'username displayName color' },
+    { path: 'assignee', select: USER_FIELDS },
+    { path: 'reporter', select: USER_FIELDS },
+    { path: 'comments.author', select: USER_FIELDS },
+    { path: 'history.by', select: USER_FIELDS },
   ]);
   res.json({ task: populated });
 });
 
-router.delete('/:taskId', async (req, res) => {
+router.delete('/:taskId', requireProjectRole('admin'), async (req, res) => {
   const result = await Task.deleteOne({ project: req.project._id, taskId: req.params.taskId });
   if (!result.deletedCount) return res.status(404).json({ error: 'Tâche introuvable.' });
   res.json({ ok: true });
@@ -148,23 +168,24 @@ router.post('/:taskId/comments', async (req, res) => {
 
   task.comments.push({ author: req.user._id, text: text.trim() });
   await task.save();
-  const populated = await task.populate('comments.author', 'username displayName color');
+  const populated = await task.populate('comments.author', USER_FIELDS);
   res.status(201).json({ comments: populated.comments });
 });
 
 router.patch('/:taskId/comments/:commentId', async (req, res) => {
   const { text } = req.body || {};
+  if (!text || !String(text).trim()) return res.status(400).json({ error: 'Le commentaire est vide.' });
   const task = await Task.findOne({ project: req.project._id, taskId: req.params.taskId });
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
   const comment = task.comments.id(req.params.commentId);
   if (!comment) return res.status(404).json({ error: 'Commentaire introuvable.' });
-  if (comment.author.toString() !== req.user._id.toString() && req.user.role !== 'superadmin') {
-    return res.status(403).json({ error: "Vous ne pouvez modifier que vos propres commentaires." });
+  if (comment.author.toString() !== req.user._id.toString() && req.projectRole !== 'admin') {
+    return res.status(403).json({ error: 'Vous ne pouvez modifier que vos propres commentaires.' });
   }
-  comment.text = text.trim();
+  comment.text = String(text).trim();
   comment.editedAt = new Date();
   await task.save();
-  const populated = await task.populate('comments.author', 'username displayName color');
+  const populated = await task.populate('comments.author', USER_FIELDS);
   res.json({ comments: populated.comments });
 });
 
@@ -173,8 +194,8 @@ router.delete('/:taskId/comments/:commentId', async (req, res) => {
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
   const comment = task.comments.id(req.params.commentId);
   if (!comment) return res.status(404).json({ error: 'Commentaire introuvable.' });
-  if (comment.author.toString() !== req.user._id.toString() && req.user.role !== 'superadmin') {
-    return res.status(403).json({ error: "Vous ne pouvez supprimer que vos propres commentaires." });
+  if (comment.author.toString() !== req.user._id.toString() && req.projectRole !== 'admin') {
+    return res.status(403).json({ error: 'Vous ne pouvez supprimer que vos propres commentaires.' });
   }
   comment.deleteOne();
   await task.save();

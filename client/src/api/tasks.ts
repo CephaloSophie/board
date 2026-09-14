@@ -17,11 +17,16 @@ function buildQuery(filters: Partial<TaskFilters>): string {
   return qs ? `?${qs}` : '';
 }
 
-export function useTasks(projectKey: string | undefined, filters: Partial<TaskFilters>) {
+// `summary` skips history/comments/instructions (board and list views only
+// need card fields; the detail view loads the full task on its own).
+export function useTasks(projectKey: string | undefined, filters: Partial<TaskFilters>, opts: { summary?: boolean } = {}) {
   return useQuery({
-    queryKey: ['tasks', projectKey, filters],
-    queryFn: () =>
-      get<{ tasks: Task[] }>(`/projects/${projectKey}/tasks${buildQuery(filters)}`).then((r) => r.tasks),
+    queryKey: ['tasks', projectKey, filters, opts.summary ? 'summary' : 'full'],
+    queryFn: () => {
+      const qs = buildQuery(filters);
+      const suffix = opts.summary ? `${qs ? `${qs}&` : '?'}fields=summary` : qs;
+      return get<{ tasks: Task[] }>(`/projects/${projectKey}/tasks${suffix}`).then((r) => r.tasks);
+    },
     enabled: !!projectKey,
   });
 }
@@ -66,6 +71,7 @@ export function useUpdateTask(projectKey: string) {
       qc.invalidateQueries({ queryKey: ['tasks', projectKey] });
       qc.invalidateQueries({ queryKey: ['task', projectKey, vars.taskId] });
       qc.invalidateQueries({ queryKey: ['project-stats', projectKey] });
+      qc.invalidateQueries({ queryKey: ['analytics', projectKey] });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { PublicUser } from '../types';
-import { getToken, setToken } from '../api/client';
+import { AUTH_EXPIRED_EVENT, getToken, setToken } from '../api/client';
 import { login as apiLogin, fetchMe } from '../api/auth';
 
 interface AuthContextValue {
@@ -28,6 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((r) => setUser(r.user))
       .catch(() => setToken(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Any API call answered 401 (expired/revoked token) signs the user out.
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {

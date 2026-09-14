@@ -2,10 +2,10 @@ const { Router } = require('express');
 const { Event } = require('../models/Event');
 const { Task } = require('../models/Task');
 const { requireAuth } = require('../middleware/auth');
-const { loadProject } = require('../middleware/project');
+const { loadProject, requireWriteAccess, blockWritesIfArchived } = require('../middleware/project');
 
 const router = Router({ mergeParams: true });
-router.use(requireAuth, loadProject);
+router.use(requireAuth, loadProject, blockWritesIfArchived, requireWriteAccess);
 
 const POPULATE = [
   { path: 'participants', select: 'username displayName color' },
@@ -29,8 +29,24 @@ router.get('/:id', async (req, res) => {
   res.json({ event });
 });
 
+// Editors send freshly-added sub-items (action items, links) with an empty
+// `_id` and empty user refs; let Mongoose mint ids instead of failing to cast
+// '' to an ObjectId.
+function withoutBlankIds(items) {
+  if (!Array.isArray(items)) return items;
+  return items.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const { _id, ...rest } = item;
+    const out = _id ? { _id, ...rest } : rest;
+    for (const ref of ['assignee', 'presenter']) if (out[ref] === '') out[ref] = null;
+    return out;
+  });
+}
+
 router.post('/', async (req, res) => {
   const b = req.body || {};
+  b.tasks = withoutBlankIds(b.tasks);
+  b.actionItems = withoutBlankIds(b.actionItems);
   if (!b.type || !b.title) return res.status(400).json({ error: 'type et title sont requis.' });
   const event = await Event.create({
     project: req.project._id,
@@ -57,6 +73,8 @@ router.patch('/:id', async (req, res) => {
   const event = await Event.findOne({ _id: req.params.id, project: req.project._id });
   if (!event) return res.status(404).json({ error: 'Événement introuvable.' });
   const b = req.body || {};
+  if ('tasks' in b) b.tasks = withoutBlankIds(b.tasks);
+  if ('actionItems' in b) b.actionItems = withoutBlankIds(b.actionItems);
   const fields = [
     'type',
     'title',

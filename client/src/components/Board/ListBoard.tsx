@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import type { Task, TaxonomyItem } from '../../types';
+import type { BoardSort, Task, TaxonomyItem } from '../../types';
 import { metaOf } from '../../utils/format';
 import Avatar from '../common/Avatar';
 import GroupSidebar from './GroupSidebar';
@@ -7,33 +7,40 @@ import GroupStats from './GroupStats';
 import { groupTasks, type GroupByKey } from './groupUtils';
 
 type SortKey = 'taskId' | 'title' | 'status' | 'priority' | 'version' | 'sprint' | 'complexity' | 'assignee';
+const SORT_KEYS: SortKey[] = ['taskId', 'title', 'status', 'priority', 'version', 'sprint', 'complexity', 'assignee'];
 
+// Sort is controlled by the page when `sort`/`onSortChange` are given (so it
+// can be saved in a filter / the URL); otherwise it is kept locally.
 export default function ListBoard({
   tasks,
   taxonomies,
   onOpen,
   groupBy,
   currentSprintKey,
+  sort,
+  onSortChange,
 }: {
   tasks: Task[];
   taxonomies: TaxonomyItem[] | undefined;
   onOpen: (taskId: string) => void;
   groupBy: GroupByKey;
   currentSprintKey?: string | null;
+  sort?: BoardSort;
+  onSortChange?: (sort: BoardSort) => void;
 }) {
-  const [sortKey, setSortKey] = useState<SortKey>('taskId');
-  const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [localSort, setLocalSort] = useState<BoardSort>({ key: 'taskId', dir: 1 });
+  const effective = sort ?? localSort;
+  const sortKey: SortKey = SORT_KEYS.includes(effective.key as SortKey) ? (effective.key as SortKey) : 'taskId';
+  const sortDir = effective.dir;
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => groupTasks(tasks, groupBy, taxonomies), [tasks, groupBy, taxonomies]);
 
   function sortBy(key: SortKey) {
-    if (key === sortKey) setSortDir((d) => (d === 1 ? -1 : 1));
-    else {
-      setSortKey(key);
-      setSortDir(1);
-    }
+    const next: BoardSort = key === sortKey ? { key, dir: sortDir === 1 ? -1 : 1 } : { key, dir: 1 };
+    if (onSortChange) onSortChange(next);
+    else setLocalSort(next);
   }
   const arrow = (key: SortKey) => (sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : '');
 
@@ -92,8 +99,8 @@ export default function ListBoard({
           </td>
           <td>{t.version || '—'}</td>
           <td>{sprintLabel}</td>
-          <td className="tag pts" style={{ display: 'inline-block' }}>
-            {t.complexity}
+          <td>
+            <span className="tag pts">{t.complexity}</span>
           </td>
           <td>
             {t.assignee ? (

@@ -8,8 +8,10 @@ const router = Router();
 router.use(requireAuth);
 
 // Every authenticated user can see the developer roster (needed for assignee pickers).
+// Superadmins may add ?includeInactive=1 to manage deactivated accounts.
 router.get('/', async (req, res) => {
-  const users = await User.find({ active: true }).sort({ displayName: 1 });
+  const includeInactive = req.user.role === 'superadmin' && ['1', 'true'].includes(String(req.query.includeInactive));
+  const users = await User.find(includeInactive ? {} : { active: true }).sort({ displayName: 1 });
   res.json({ users: users.map((u) => u.toPublic()) });
 });
 

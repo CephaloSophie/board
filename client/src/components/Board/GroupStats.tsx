@@ -1,5 +1,6 @@
 import type { Task, TaxonomyItem } from '../../types';
 import { fmtDur, hoursOf } from '../../utils/format';
+import { statusCategoryResolver } from '../../utils/status';
 
 // Computes and renders a compact stats bar for a group of tasks:
 // - total tasks / points / estimated hours,
@@ -16,14 +17,8 @@ export interface GroupStatsData {
   unassigned: number;
 }
 
-const IN_PROGRESS_STATUSES = new Set(['onprocess', 'needreview', 'needconfirmation', 'tested']);
-
 export function computeStats(tasks: Task[], taxonomies: TaxonomyItem[] | undefined): GroupStatsData {
-  const doneKeys = new Set(
-    (taxonomies || [])
-      .filter((t) => t.kind === 'status' && (t.meta as { isDone?: boolean } | undefined)?.isDone)
-      .map((t) => t.key)
-  );
+  const categoryOf = statusCategoryResolver(taxonomies);
   let points = 0;
   let hours = 0;
   let todoPoints = 0;
@@ -34,8 +29,9 @@ export function computeStats(tasks: Task[], taxonomies: TaxonomyItem[] | undefin
     const p = t.complexity || 0;
     points += p;
     hours += hoursOf(t.duration);
-    if (doneKeys.has(t.status)) donePoints += p;
-    else if (IN_PROGRESS_STATUSES.has(t.status)) inProgressPoints += p;
+    const category = categoryOf(t.status);
+    if (category === 'done') donePoints += p;
+    else if (category === 'inprogress') inProgressPoints += p;
     else todoPoints += p;
     if (!t.assignee) unassigned += 1;
   }
