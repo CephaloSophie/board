@@ -1,12 +1,14 @@
 /**
- * PM2 — production sur le VPS : https://board.kantoaplo.com
+ * PM2 — production sur le VPS AlmaLinux 9 (217.160.186.250) : https://board.kantoaplo.com
+ * Base MongoDB : boardKantoAplo. Les autres applications PM2 du serveur ne sont pas concernées
+ * (seuls kydos-server et kydos-client sont déclarés ici).
  *
  *   npm run env:vps                  crée server/.env et client/.env avec les valeurs du VPS (secrets générés)
  *   npm run setup && npm run build
  *   npm run start:vps                démarre kydos-server + kydos-client
  *   pm2 save && pm2 startup          redémarrage automatique au boot
  *
- * nginx (deploy/nginx/board.kantoaplo.com.conf) termine le HTTPS et relaie :
+ * nginx (/etc/nginx/conf.d/board.kantoaplo.com.conf, depuis deploy/nginx/) termine le HTTPS et relaie :
  *   https://board.kantoaplo.com/api/*  →  kydos-server  127.0.0.1:7002
  *   https://board.kantoaplo.com/*      →  kydos-client  127.0.0.1:7001  (client/dist)
  * Les deux processus n'écoutent que sur 127.0.0.1 : seul nginx est exposé (ports 80 / 443).
@@ -25,6 +27,7 @@ const LOOPBACK = '127.0.0.1';
 const API_PORT = process.env.KYDOS_API_PORT || '7002';
 const WEB_PORT = process.env.KYDOS_WEB_PORT || '7001';
 const SERVER_ENV_FILE = process.env.KYDOS_SERVER_ENV_FILE || path.join(ROOT, 'server', '.env');
+const DB_NAME = process.env.KYDOS_DB_NAME || 'boardKantoAplo';
 const LOGS = path.join(ROOT, 'logs');
 
 function loadEnvFile(file) {
@@ -53,6 +56,15 @@ function readServerEnv() {
   const problems = [];
   if (!env.MONGODB_URI) problems.push('MONGODB_URI manquant');
   else if (/root:toor|CHANGER/i.test(env.MONGODB_URI)) problems.push('MONGODB_URI contient des identifiants de développement ou un mot de passe à changer');
+  else {
+    let dbName = '';
+    try {
+      dbName = decodeURIComponent(new URL(env.MONGODB_URI).pathname.replace(/^\//, ''));
+    } catch {
+      problems.push('MONGODB_URI illisible');
+    }
+    if (dbName !== DB_NAME) problems.push(`MONGODB_URI doit viser la base ${DB_NAME} (trouvé : « ${dbName || 'aucune'} »)`);
+  }
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) problems.push('JWT_SECRET absent ou trop court (32 caractères minimum)');
   else if (/change-me|CHANGER|dev-secret/i.test(env.JWT_SECRET)) problems.push('JWT_SECRET est une valeur par défaut');
   if (problems.length) throw new Error(`[kydos] server/.env invalide pour la production : ${problems.join(' ; ')}.`);
@@ -124,7 +136,7 @@ module.exports = {
       host: [process.env.KYDOS_DEPLOY_HOST || DOMAIN],
       ref: process.env.KYDOS_DEPLOY_REF || `origin/${git('rev-parse --abbrev-ref HEAD', 'main')}`,
       repo: process.env.KYDOS_DEPLOY_REPO || git('remote get-url origin', 'git@github.com:CephaloSophie/board.git'),
-      path: process.env.KYDOS_DEPLOY_PATH || '/home/deploy/kydos-board-pm2',
+      path: process.env.KYDOS_DEPLOY_PATH || '/opt/board-kantoaplo-pm2',
       ssh_options: 'StrictHostKeyChecking=accept-new',
       'post-setup': 'echo "Créez maintenant les .env : cd source && npm run env:vps"',
       'post-deploy':

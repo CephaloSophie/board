@@ -274,6 +274,10 @@ Exemple de sauvegarde quotidienne (`crontab -e`) :
 
 À changer dès la première connexion en production (*Utilisateurs → Mot de passe…*).
 
+Créer un super admin depuis la console (base de `server/.env`) : `npm run admin:create` (questions
+interactives, mot de passe masqué) ; `--username alice --name "Alice" --email …`, `--promote` pour un compte
+existant, `--reset-password` ; `npm run admin:list` pour la liste.
+
 ## 10. Docker (alternative à PM2)
 
 ```bash

@@ -9,7 +9,7 @@ Documentation :
 - [API](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Installation & exploitation](docs/INSTALLATION.md)
-- [Mise en production sur le VPS (board.kantoaplo.com, PM2, nginx, HTTPS)](VPSCONFIGURATION.md)
+- [Mise en production sur le VPS AlmaLinux (board.kantoaplo.com, PM2, nginx existant, HTTPS)](VPSCONFIGURATION.md)
 - Specs produit : [analyse chef de projet](docs/product/PM_ANALYSIS.md) · [import Jira & Scrum](docs/product/SCRUM_JIRA_IMPORT_SPEC.md)
 
 ## Stack
@@ -41,6 +41,7 @@ npm run health
 | `npm run reload` · `npm run stop` · `npm run logs` · `npm run status` | exploitation PM2 |
 | `npm run deploy` | git pull, dépendances, build, aperçu de migration, reload sans coupure |
 | `npm run migrate -- --dry-run` · `npm run release:align -- --dry-run` | mise à niveau d'une base existante, alignement sur la version 19.0.3 |
+| `npm run admin:create` · `npm run admin:list` | créer / promouvoir un super admin en console · lister les super admins |
 | `npm test` · `npm run typecheck` | tests serveur, typage du front |
 
 Sans PM2 : `cd server && npm run dev` et `cd client && npm run dev`. Docker : `docker compose up --build -d`.

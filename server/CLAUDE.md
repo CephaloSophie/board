@@ -22,12 +22,13 @@ src/
                         externalJson (format « systèmes externes » → JSON search ; CLI scripts/jira-convert.js)
   migrations/           2026-09-lot1.js (exporte migrate(), CLI via npm run migrate),
                         alignRelease.js (sprints / versions alignés sur la version courante, npm run release:align)
+  scripts/ (hors src)   create-superadmin.js (npm run admin:create / admin:list), jira-convert.js
   seed/seed.js          tasks.json → projet KB (insert-only ; --overwrite pour réécrire) : anciennes versions publiées,
                         anciens sprints terminés, version + sprint 19.0.3 courants (SEED_CURRENT_VERSION)
 test/
   helpers.js            startTestServer() : base *_test vidée, users admin/dev, client fetch
   fixtures/jira/        exports Jira de référence (CSV Cloud, JSON search, sprints, versions, external-system)
-  *.test.js             api, csv, socle, migration, alignRelease, savedFilters, sprints, import, importExternal, dashboards, collaboration
+  *.test.js             api, csv, socle, migration, alignRelease, superadmin, savedFilters, sprints, import, importExternal, dashboards, collaboration
 ```
 
 ## Conventions

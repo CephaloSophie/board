@@ -12,6 +12,8 @@
     "migrate": "node src/migrations/2026-09-lot1.js",
     "jira:convert": "node scripts/jira-convert.js",
     "release:align": "node src/migrations/alignRelease.js",
+    "admin:create": "node scripts/create-superadmin.js",
+    "admin:list": "node scripts/create-superadmin.js --list",
     "test": "node --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "dependencies": {

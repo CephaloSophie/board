@@ -34,10 +34,12 @@ init('server', VPS ? 'deploy/vps/server.env.example' : 'server/.env.example', (s
 init('client', VPS ? 'deploy/vps/client.env.example' : 'client/.env.example');
 
 if (VPS && mongoPassword) {
-  console.log('\nCréez l’utilisateur MongoDB de l’application (mot de passe déjà écrit dans server/.env) :');
+  console.log('\nCréez l’utilisateur MongoDB « board » de la base boardKantoAplo (mot de passe déjà écrit dans server/.env) :');
   console.log(
-    `  mongosh "mongodb://127.0.0.1:27017/admin" -u admin -p --eval 'db.getSiblingDB("admin").createUser({ user: "kydos", pwd: "${mongoPassword}", roles: [{ role: "readWrite", db: "kydos_board" }] })'`
+    `  mongosh "mongodb://127.0.0.1:27017/admin" -u <admin> -p --eval 'db.getSiblingDB("admin").createUser({ user: "board", pwd: "${mongoPassword}", roles: [{ role: "readWrite", db: "boardKantoAplo" }] })'`
   );
+  console.log('MongoDB sans authentification ? Créez quand même l’utilisateur (sans « -u <admin> -p ») : l’URI de server/.env l’utilise.');
+  console.log('Ensuite : npm run setup && npm run build, puis npm run admin:create pour votre compte super admin.');
 } else if (created.length) {
   console.log('\nÀ vérifier maintenant :');
   console.log('  server/.env  MONGODB_URI (hôte, identifiants, nom de base), CLIENT_ORIGIN (URL publique), HOST=127.0.0.1 derrière nginx');
