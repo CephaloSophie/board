@@ -15,12 +15,17 @@ admin projet complète, rituels agiles). Langue du produit et des échanges avec
 | `docs/API.md` | Référence des routes, droits et codes d'erreur. |
 | `docs/ARCHITECTURE.md` | Modèle de données et mécanismes transverses. |
 | `docs/product/` | Specs : `PM_ANALYSIS.md` (roadmap, Lot 1/2/3, critères d'acceptation), `SCRUM_JIRA_IMPORT_SPEC.md` (formats Jira, mapping, Scrum). |
-| `tasks.json` | Données d'origine du projet « Kýdos Belote » importées par le seed — pas le backlog de ce board. |
+| `tasks.json` | Données d'origine du projet « Kýdos Belote » importées par le seed (version courante 19.0.3) — pas le backlog de ce board. |
+| `ecosystem.config.cjs`, `scripts/` | PM2 (API + front `client/serve.cjs`), init des `.env`, déploiement, contrôle de santé. Voir `docs/INSTALLATION.md`. |
+| `ecosystem.vps.config.cjs`, `deploy/`, `VPSCONFIGURATION.md` | Production VPS https://board.kantoaplo.com : PM2 (127.0.0.1, secrets vérifiés), nginx HTTPS, Let's Encrypt (`deploy/vps/setup-https.sh`). |
 
 ## Commandes
 
 ```bash
-cd server && npm test                 # node:test sur base *_test (≈45 tests, ~20 s)
+npm run setup && npm run build        # racine : dépendances + build du front
+npm start | npm run start:dev         # PM2 (ecosystem.config.cjs) : kydos-server + kydos-client ; npm run health
+npm run release:align -- --dry-run    # aligne sprints/versions sur la version courante (19.0.3)
+cd server && npm test                 # node:test sur base *_test (≈52 tests, ~25 s)
 cd server && npm run migrate -- --dry-run   # puis npm run migrate (idempotent)
 cd client && npx tsc -b && npm run build
 ```

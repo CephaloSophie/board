@@ -101,7 +101,12 @@ styles/         themes.css (variables par thème) + global.css
 
 ## Exploitation
 
-- Ports : API 7002, client 7001 (dev). Docker : `docker compose up --build -d` (port 7002).
+- Ports : API 7002, front 7001. PM2 : `ecosystem.config.cjs` (racine) lance `kydos-server` et `kydos-client`
+  (production : `client/serve.cjs` sert `client/dist` et relaie `/api` ; développement : Vite). Arrêt propre
+  sur SIGTERM (fin des requêtes puis fermeture MongoDB). Docker : `docker compose up --build -d` (port 7002).
+  Guide : `docs/INSTALLATION.md`.
+- Version courante : `npm run release:align` (`src/migrations/alignRelease.js`) termine les sprints et publie les
+  versions antérieures, active le sprint et la version courants (19.0.3) ; le seed produit directement cet état.
 - Montée de version depuis une base antérieure au Lot 1 : `cd server && npm run migrate -- --dry-run`
   puis `npm run migrate` (idempotent).
 - `node --watch` peut continuer à servir l'ancien code après l'ajout de nouveaux fichiers de routes :

@@ -3,7 +3,7 @@
     "project": "Kýdos Belote",
     "vendor": "Cephalo Sophie",
     "schemaVersion": "1.0.0",
-    "currentVersion": "12.4.4",
+    "currentVersion": "19.0.3",
     "generatedAt": "2026-08-05T09:00:00.000Z",
     "owner": "Ameur Hamdouni",
     "description": "Référentiel UNIQUE des tâches du projet. Toute session de travail DOIT: (1) lire ce fichier, (2) rapprocher chaque nouvelle demande d'une tâche existante — enrichir ses instructions si c'est la même, créer une tâche sinon, (3) mettre à jour statut + history + updatedAt, (4) travailler par ordre de priorité.",

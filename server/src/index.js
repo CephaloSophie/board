@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { connectDb } = require('./db');
+const { connectDb, mongoose } = require('./db');
 const { port, clientOrigin } = require('./config');
 const { catchAsyncErrors, errorStatus, errorMessage } = require('./utils/asyncErrors');
 
@@ -80,7 +80,18 @@ app.use((err, req, res, next) => {
 
 async function main() {
   await connectDb();
-  app.listen(port, () => console.log(`[server] listening on :${port}`));
+  // HOST=127.0.0.1 keeps the API private behind a reverse proxy (default: all interfaces).
+  const host = process.env.HOST;
+  const onListen = () => console.log(`[server] listening on ${host || ''}:${port}`);
+  const server = host ? app.listen(port, host, onListen) : app.listen(port, onListen);
+  // PM2 reload / stop: finish in-flight requests, then close MongoDB.
+  const shutdown = (signal) => {
+    console.log(`[server] ${signal} reçu, arrêt propre…`);
+    server.close(() => mongoose.disconnect().finally(() => process.exit(0)));
+    setTimeout(() => process.exit(1), 7000).unref();
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
 
 if (require.main === module) {

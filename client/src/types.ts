@@ -88,7 +88,7 @@ export interface SprintReport {
   carriedOverPoints?: number;
   carriedTo: string | null;
   keptTaskIds: string[];
-  source: 'lifecycle' | 'import' | 'computed';
+  source: 'lifecycle' | 'import' | 'computed' | 'seed' | 'alignment';
 }
 
 export interface SprintMeta {

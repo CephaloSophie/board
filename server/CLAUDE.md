@@ -20,12 +20,14 @@ src/
   import/csv.js         CSV RFC 4180 (lecture/écriture)
   import/jira/          parseFiles, dates, markup, suggest, importer (runJiraImport, rollbackImport),
                         externalJson (format « systèmes externes » → JSON search ; CLI scripts/jira-convert.js)
-  migrations/           2026-09-lot1.js (exporte migrate(), CLI via npm run migrate)
-  seed/seed.js          tasks.json → projet KB (insert-only ; --overwrite pour réécrire)
+  migrations/           2026-09-lot1.js (exporte migrate(), CLI via npm run migrate),
+                        alignRelease.js (sprints / versions alignés sur la version courante, npm run release:align)
+  seed/seed.js          tasks.json → projet KB (insert-only ; --overwrite pour réécrire) : anciennes versions publiées,
+                        anciens sprints terminés, version + sprint 19.0.3 courants (SEED_CURRENT_VERSION)
 test/
   helpers.js            startTestServer() : base *_test vidée, users admin/dev, client fetch
   fixtures/jira/        exports Jira de référence (CSV Cloud, JSON search, sprints, versions, external-system)
-  *.test.js             api, csv, socle, migration, savedFilters, sprints, import, importExternal, dashboards, collaboration
+  *.test.js             api, csv, socle, migration, alignRelease, savedFilters, sprints, import, importExternal, dashboards, collaboration
 ```
 
 ## Conventions

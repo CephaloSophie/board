@@ -11,6 +11,7 @@
     "seed:overwrite": "node src/seed/seed.js --overwrite",
     "migrate": "node src/migrations/2026-09-lot1.js",
     "jira:convert": "node scripts/jira-convert.js",
+    "release:align": "node src/migrations/alignRelease.js",
     "test": "node --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "dependencies": {

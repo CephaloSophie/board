@@ -21,6 +21,14 @@ const OVERWRITE = process.argv.includes('--overwrite');
 const WRITE_OP = OVERWRITE ? '$set' : '$setOnInsert';
 
 const DONE_STATUS_IDS = new Set(['tested', 'finished', 'confirmed']);
+// Current release (sprint + version) of the seeded project; defaults to tasks.json meta.currentVersion.
+const CURRENT_RELEASE = process.env.SEED_CURRENT_VERSION || null;
+const DAY = 86400000;
+
+function mondayUtc(date) {
+  const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY);
+}
 
 function versionSortKey(v) {
   const parts = String(v)
@@ -137,7 +145,8 @@ async function run() {
         name: meta.project,
         vendor: meta.vendor,
         description: meta.description,
-        currentVersion: meta.currentVersion,
+        currentVersion: CURRENT_RELEASE || meta.currentVersion,
+        currentSprint: `sprint-${CURRENT_RELEASE || meta.currentVersion}`,
         complexityScale: meta.complexityScale,
         sprintDurationValue: 1,
         sprintDurationUnit: 'weeks',
@@ -192,44 +201,74 @@ async function run() {
     });
   }
 
-  const distinctVersions = Array.from(new Set(data.tasks.map((t) => t.version).filter(Boolean))).sort(
+  // Release alignment: every version found in tasks.json that is older than the
+  // current release (meta.currentVersion, 19.0.3) is published and its sprint
+  // finished with a report; the current release gets an open version and the
+  // single active sprint, dated this week. Older sprints are dated backwards.
+  const currentRelease = CURRENT_RELEASE || meta.currentVersion;
+  const legacyVersions = Array.from(new Set(data.tasks.map((t) => t.version).filter((v) => v && v !== currentRelease))).sort(
     compareVersions
   );
-  for (const [i, v] of distinctVersions.entries()) {
-    await upsertTaxonomy(project._id, 'version', v, { label: v, order: i });
-  }
-  // Sprints start out mirroring versions 1:1 — a reasonable default that
-  // teams can immediately reshape (rename, merge, add new ones) since sprint
-  // is tracked as its own independent field on every task. Each sprint gets
-  // a status (draft/ready/active/finished) inferred from its position vs
-  // the project's currentVersion, plus placeholder start/end dates spaced
-  // sprintDurationDays apart from a fixed anchor.
-  const sprintLen = 7; // matches Project.sprintDurationDays default
-  const anchor = new Date('2026-07-20T00:00:00.000Z').getTime();
-  const currentIdx = distinctVersions.indexOf(meta.currentVersion);
-  let currentSprintKey = null;
-  for (const [i, v] of distinctVersions.entries()) {
-    const startDate = new Date(anchor + i * sprintLen * 24 * 3600 * 1000).toISOString();
-    const endDate = new Date(anchor + (i + 1) * sprintLen * 24 * 3600 * 1000 - 1).toISOString();
-    let status = 'draft';
-    if (currentIdx >= 0) {
-      if (i < currentIdx) status = 'finished';
-      else if (i === currentIdx) status = 'active';
-      else if (i === currentIdx + 1) status = 'ready';
-    }
-    const key = `sprint-${v}`;
-    if (status === 'active') currentSprintKey = key;
-    await upsertTaxonomy(project._id, 'sprint', key, {
+  const sprintLen = 7 * DAY; // project cadence: 1 week
+  const currentStart = mondayUtc(new Date());
+  const dayIso = (ms) => new Date(ms).toISOString();
+  const currentSprintKey = `sprint-${currentRelease}`;
+
+  for (const [i, v] of legacyVersions.entries()) {
+    const startMs = currentStart.getTime() - (legacyVersions.length - i) * sprintLen;
+    const endMs = startMs + sprintLen - DAY;
+    const tasks = data.tasks.filter((t) => t.version === v);
+    const done = tasks.filter((t) => DONE_STATUS_IDS.has(t.status));
+    const open = tasks.filter((t) => !DONE_STATUS_IDS.has(t.status));
+    const pointsOf = (list) => list.reduce((a, t) => a + toPoints(normalizeLegacyTask(t).complexity), 0);
+    await upsertTaxonomy(project._id, 'version', v, {
+      label: v,
+      order: i,
+      meta: { status: 'released', startDate: dayIso(startMs), releaseDate: dayIso(endMs), releasedAt: dayIso(endMs) },
+    });
+    await upsertTaxonomy(project._id, 'sprint', `sprint-${v}`, {
       label: `Sprint ${v}`,
       order: i,
-      meta: { linkedVersion: v, status, startDate, endDate, goal: `Livrer la version ${v}.` },
+      meta: {
+        linkedVersion: v,
+        status: 'finished',
+        startDate: dayIso(startMs),
+        endDate: dayIso(endMs),
+        goal: `Livrer la version ${v}.`,
+        closedAt: dayIso(endMs),
+        report: {
+          committedPoints: pointsOf(tasks),
+          committedCount: tasks.length,
+          completedPoints: pointsOf(done),
+          completedCount: done.length,
+          carriedOverTaskIds: [],
+          carriedOverPoints: 0,
+          carriedTo: null,
+          keptTaskIds: open.map((t) => t.id),
+          source: 'seed',
+        },
+      },
     });
   }
 
-  if (currentSprintKey && !project.currentSprint) {
-    project.currentSprint = currentSprintKey;
-    await project.save();
-  }
+  await upsertTaxonomy(project._id, 'version', currentRelease, {
+    label: currentRelease,
+    order: legacyVersions.length,
+    meta: { status: 'unreleased', startDate: currentStart.toISOString() },
+  });
+  await upsertTaxonomy(project._id, 'sprint', currentSprintKey, {
+    label: `Sprint ${currentRelease}`,
+    order: legacyVersions.length,
+    meta: {
+      linkedVersion: currentRelease,
+      status: 'active',
+      startDate: currentStart.toISOString(),
+      endDate: dayIso(currentStart.getTime() + sprintLen - DAY),
+      goal: `Livrer la version ${currentRelease}.`,
+      startedAt: currentStart.toISOString(),
+      startSnapshot: { at: currentStart.toISOString(), committedPoints: 0, committedCount: 0, taskIds: [] },
+    },
+  });
 
   console.log(`[seed] Seeding ${data.tasks.length} tasks...`);
   let maxSeq = 0;
@@ -286,6 +325,7 @@ async function run() {
 
   console.log('[seed] Done.');
   console.log(`[seed] Superadmins: ameur / hamido — password: ${DEFAULT_PASSWORD}`);
+  console.log(`[seed] Version et sprint courants : ${currentRelease}. Base déjà existante ? npm run release:align -- --dry-run`);
   await mongoose.disconnect();
 }
 
