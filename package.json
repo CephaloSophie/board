@@ -1,0 +1,36 @@
+{
+  "name": "kydos-board",
+  "private": true,
+  "version": "5.1.0",
+  "description": "Kýdos Board — gestion de projet agile (API Express/MongoDB + SPA React).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install --include=dev",
+    "env:init": "node scripts/init-env.cjs",
+    "env:vps": "node scripts/init-env.cjs --vps",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix server test",
+    "typecheck": "cd client && npx tsc -b",
+    "seed": "npm --prefix server run seed",
+    "migrate": "npm --prefix server run migrate --",
+    "release:align": "npm --prefix server run release:align --",
+    "admin:create": "npm --prefix server run admin:create --",
+    "admin:list": "npm --prefix server run admin:list",
+    "start": "mkdir -p logs && pm2 start ecosystem.config.cjs",
+    "start:dev": "mkdir -p logs && KYDOS_ENV=development pm2 start ecosystem.config.cjs",
+    "start:vps": "mkdir -p logs && pm2 start ecosystem.vps.config.cjs",
+    "reload": "pm2 reload ecosystem.config.cjs --update-env",
+    "reload:vps": "pm2 reload ecosystem.vps.config.cjs --update-env",
+    "restart": "pm2 restart ecosystem.config.cjs --update-env",
+    "stop": "pm2 stop ecosystem.config.cjs",
+    "delete": "pm2 delete ecosystem.config.cjs",
+    "status": "pm2 status",
+    "logs": "pm2 logs '/^kydos-/' --lines 100",
+    "health": "node scripts/health.cjs",
+    "health:vps": "node scripts/health.cjs --vps",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:vps": "bash scripts/deploy.sh --vps"
+  }
+}

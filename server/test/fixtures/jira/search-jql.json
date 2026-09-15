@@ -1,0 +1,239 @@
+{
+  "isLast": true,
+  "names": {
+    "summary": "Summary",
+    "customfield_10020": "Sprint",
+    "customfield_10016": "Story point estimate",
+    "timeoriginalestimate": "Original estimate",
+    "timeestimate": "Remaining Estimate",
+    "timespent": "Time Spent"
+  },
+  "issues": [
+    {
+      "id": "10001",
+      "key": "KB-1",
+      "fields": {
+        "summary": "Paiement en ligne",
+        "issuetype": { "id": "10000", "name": "Epic", "subtask": false, "hierarchyLevel": 1 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "3", "name": "In Progress", "statusCategory": { "id": 4, "key": "indeterminate", "name": "In Progress", "colorName": "yellow" } },
+        "priority": { "id": "2", "name": "High" },
+        "resolution": null,
+        "resolutiondate": null,
+        "assignee": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin", "emailAddress": "carole.martin@example.com", "active": true },
+        "reporter": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin", "emailAddress": "carole.martin@example.com", "active": true },
+        "created": "2026-07-01T10:00:00.000+0200",
+        "updated": "2026-09-10T16:12:00.000+0200",
+        "duedate": "2026-09-30",
+        "versions": [],
+        "fixVersions": [ { "id": "10100", "name": "1.0.0", "archived": false, "released": false, "releaseDate": "2026-09-30" } ],
+        "components": [ { "id": "10200", "name": "API" } ],
+        "labels": [ "paiement" ],
+        "description": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Permettre aux clients de payer en ligne." } ] } ] },
+        "environment": null,
+        "timeoriginalestimate": null,
+        "timeestimate": null,
+        "timespent": null,
+        "aggregatetimeoriginalestimate": null,
+        "customfield_10020": null,
+        "customfield_10016": null,
+        "comment": { "comments": [], "maxResults": 0, "total": 0, "startAt": 0 }
+      }
+    },
+    {
+      "id": "10002",
+      "key": "KB-2",
+      "fields": {
+        "summary": "Payer par carte",
+        "issuetype": { "id": "10001", "name": "Story", "subtask": false, "hierarchyLevel": 0 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "3", "name": "In Progress", "statusCategory": { "id": 4, "key": "indeterminate", "name": "In Progress", "colorName": "yellow" } },
+        "priority": { "id": "3", "name": "Medium" },
+        "resolution": null,
+        "resolutiondate": null,
+        "assignee": { "accountId": "712020:1a2b3c4d-0000-4000-8000-00000000a11c", "displayName": "Alice Durand", "emailAddress": "alice.durand@example.com", "active": true },
+        "reporter": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin", "emailAddress": "carole.martin@example.com", "active": true },
+        "created": "2026-07-02T11:30:00.000+0200",
+        "updated": "2026-09-12T09:41:00.000+0200",
+        "duedate": null,
+        "versions": [],
+        "fixVersions": [
+          { "id": "10100", "name": "1.0.0", "archived": false, "released": false, "releaseDate": "2026-09-30" },
+          { "id": "10101", "name": "1.1.0", "archived": false, "released": false, "releaseDate": "2026-10-30" }
+        ],
+        "components": [ { "id": "10200", "name": "API" }, { "id": "10201", "name": "Web" } ],
+        "labels": [ "paiement", "front" ],
+        "parent": { "id": "10001", "key": "KB-1", "fields": { "summary": "Paiement en ligne", "issuetype": { "name": "Epic", "hierarchyLevel": 1 } } },
+        "description": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "En tant que client, je veux payer par carte afin de finaliser ma commande." } ] } ] },
+        "environment": null,
+        "timeoriginalestimate": 28800,
+        "timeestimate": 14400,
+        "timespent": 14400,
+        "aggregatetimeoriginalestimate": 36000,
+        "customfield_10016": 5,
+        "customfield_10020": [
+          { "id": 1, "name": "KB Sprint 1", "state": "closed", "boardId": 1, "goal": "Paiement carte de bout en bout", "startDate": "2026-08-24T07:00:00.000Z", "endDate": "2026-09-04T15:00:00.000Z", "completeDate": "2026-09-04T15:10:00.000Z" },
+          { "id": 2, "name": "KB Sprint 2", "state": "active", "boardId": 1, "goal": "3-D Secure et corrections", "startDate": "2026-09-07T07:00:00.000Z", "endDate": "2026-09-18T15:00:00.000Z" }
+        ],
+        "comment": {
+          "comments": [
+            { "id": "20001", "author": { "accountId": "712020:1a2b3c4d-0000-4000-8000-00000000a11c", "displayName": "Alice Durand" }, "created": "2026-08-25T09:05:00.000+0200", "updated": "2026-08-25T09:05:00.000+0200",
+              "body": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Maquette validée, on part sur Stripe Elements." } ] } ] } },
+            { "id": "20002", "author": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin" }, "created": "2026-09-04T17:20:00.000+0200", "updated": "2026-09-04T17:20:00.000+0200",
+              "body": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Reporté sur le sprint 2 : 3-D Secure pas prêt." } ] } ] } }
+          ],
+          "maxResults": 2, "total": 2, "startAt": 0
+        }
+      }
+    },
+    {
+      "id": "10003",
+      "key": "KB-3",
+      "fields": {
+        "summary": "Montant arrondi incorrect au centime près",
+        "issuetype": { "id": "10004", "name": "Bug", "subtask": false, "hierarchyLevel": 0 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "10002", "name": "Done", "statusCategory": { "id": 3, "key": "done", "name": "Done", "colorName": "green" } },
+        "priority": { "id": "1", "name": "Highest" },
+        "resolution": { "id": "10000", "name": "Done" },
+        "resolutiondate": "2026-09-03T14:31:00.000+0200",
+        "assignee": { "accountId": "712020:2b3c4d5e-0000-4000-8000-000000000b0b", "displayName": "Bob Leroy", "active": true },
+        "reporter": { "accountId": "712020:1a2b3c4d-0000-4000-8000-00000000a11c", "displayName": "Alice Durand", "emailAddress": "alice.durand@example.com", "active": true },
+        "created": "2026-07-20T15:15:00.000+0200",
+        "updated": "2026-09-03T14:31:00.000+0200",
+        "duedate": null,
+        "versions": [ { "id": "10099", "name": "0.9.0", "archived": false, "released": true, "releaseDate": "2026-07-15" } ],
+        "fixVersions": [ { "id": "10100", "name": "1.0.0", "archived": false, "released": false, "releaseDate": "2026-09-30" } ],
+        "components": [ { "id": "10200", "name": "API" } ],
+        "labels": [ "paiement" ],
+        "parent": { "id": "10001", "key": "KB-1", "fields": { "summary": "Paiement en ligne", "issuetype": { "name": "Epic", "hierarchyLevel": 1 } } },
+        "description": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Le total affiche 19,99 € au lieu de 20,00 €." } ] } ] },
+        "environment": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Chrome 128 / Windows 11" } ] } ] },
+        "timeoriginalestimate": 7200,
+        "timeestimate": 0,
+        "timespent": 5400,
+        "aggregatetimeoriginalestimate": 7200,
+        "customfield_10016": 2,
+        "customfield_10020": [
+          { "id": 1, "name": "KB Sprint 1", "state": "closed", "boardId": 1, "goal": "Paiement carte de bout en bout", "startDate": "2026-08-24T07:00:00.000Z", "endDate": "2026-09-04T15:00:00.000Z", "completeDate": "2026-09-04T15:10:00.000Z" }
+        ],
+        "comment": {
+          "comments": [
+            { "id": "20003", "author": { "accountId": "712020:2b3c4d5e-0000-4000-8000-000000000b0b", "displayName": "Bob Leroy" }, "created": "2026-09-03T14:30:00.000+0200", "updated": "2026-09-03T14:30:00.000+0200",
+              "body": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Cause : arrondi flottant; corrigé avec des " }, { "type": "text", "text": "centimes entiers", "marks": [ { "type": "strong" } ] }, { "type": "text", "text": "." } ] } ] } }
+          ],
+          "maxResults": 1, "total": 1, "startAt": 0
+        }
+      }
+    },
+    {
+      "id": "10004",
+      "key": "KB-4",
+      "fields": {
+        "summary": "Écrire les tests 3-D Secure",
+        "issuetype": { "id": "10003", "name": "Sub-task", "subtask": true, "hierarchyLevel": -1 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "10001", "name": "To Do", "statusCategory": { "id": 2, "key": "new", "name": "To Do", "colorName": "blue-gray" } },
+        "priority": { "id": "3", "name": "Medium" },
+        "resolution": null,
+        "resolutiondate": null,
+        "assignee": { "accountId": "712020:2b3c4d5e-0000-4000-8000-000000000b0b", "displayName": "Bob Leroy", "active": true },
+        "reporter": { "accountId": "712020:1a2b3c4d-0000-4000-8000-00000000a11c", "displayName": "Alice Durand", "emailAddress": "alice.durand@example.com", "active": true },
+        "created": "2026-09-07T10:02:00.000+0200",
+        "updated": "2026-09-07T10:02:00.000+0200",
+        "duedate": "2026-09-15",
+        "versions": [],
+        "fixVersions": [ { "id": "10100", "name": "1.0.0", "archived": false, "released": false, "releaseDate": "2026-09-30" } ],
+        "components": [],
+        "labels": [],
+        "parent": { "id": "10002", "key": "KB-2", "fields": { "summary": "Payer par carte", "issuetype": { "name": "Story", "hierarchyLevel": 0 } } },
+        "description": null,
+        "environment": null,
+        "timeoriginalestimate": 7200,
+        "timeestimate": 7200,
+        "timespent": null,
+        "aggregatetimeoriginalestimate": 7200,
+        "customfield_10016": null,
+        "customfield_10020": [
+          { "id": 2, "name": "KB Sprint 2", "state": "active", "boardId": 1, "goal": "3-D Secure et corrections", "startDate": "2026-09-07T07:00:00.000Z", "endDate": "2026-09-18T15:00:00.000Z" }
+        ],
+        "comment": { "comments": [], "maxResults": 0, "total": 0, "startAt": 0 }
+      }
+    },
+    {
+      "id": "10005",
+      "key": "KB-5",
+      "fields": {
+        "summary": "Configurer le webhook Stripe",
+        "issuetype": { "id": "10002", "name": "Task", "subtask": false, "hierarchyLevel": 0 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "10001", "name": "To Do", "statusCategory": { "id": 2, "key": "new", "name": "To Do", "colorName": "blue-gray" } },
+        "priority": { "id": "4", "name": "Low" },
+        "resolution": null,
+        "resolutiondate": null,
+        "assignee": null,
+        "reporter": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin", "emailAddress": "carole.martin@example.com", "active": true },
+        "created": "2026-09-10T08:45:00.000+0200",
+        "updated": "2026-09-11T18:10:00.000+0200",
+        "duedate": null,
+        "versions": [],
+        "fixVersions": [ { "id": "10101", "name": "1.1.0", "archived": false, "released": false, "releaseDate": "2026-10-30" } ],
+        "components": [ { "id": "10200", "name": "API" } ],
+        "labels": [ "stripe" ],
+        "parent": { "id": "10001", "key": "KB-1", "fields": { "summary": "Paiement en ligne", "issuetype": { "name": "Epic", "hierarchyLevel": 1 } } },
+        "description": {
+          "type": "doc", "version": 1,
+          "content": [
+            { "type": "heading", "attrs": { "level": 3 }, "content": [ { "type": "text", "text": "Contexte" } ] },
+            { "type": "paragraph", "content": [ { "type": "text", "text": "Recevoir les événements " }, { "type": "text", "text": "payment_intent.succeeded", "marks": [ { "type": "strong" } ] }, { "type": "text", "text": "." } ] },
+            { "type": "bulletList", "content": [
+              { "type": "listItem", "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Vérifier la signature" } ] } ] },
+              { "type": "listItem", "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Rejouer en cas d'échec (\"retry\")" } ] } ] }
+            ] }
+          ]
+        },
+        "environment": null,
+        "timeoriginalestimate": 14400,
+        "timeestimate": 14400,
+        "timespent": null,
+        "aggregatetimeoriginalestimate": 14400,
+        "customfield_10016": 3,
+        "customfield_10020": [
+          { "id": 3, "name": "KB Sprint 3", "state": "future", "boardId": 1, "goal": "Webhooks et historique", "startDate": "2026-09-21T07:00:00.000Z", "endDate": "2026-10-02T15:00:00.000Z" }
+        ],
+        "comment": { "comments": [], "maxResults": 0, "total": 0, "startAt": 0 }
+      }
+    },
+    {
+      "id": "10006",
+      "key": "KB-6",
+      "fields": {
+        "summary": "Historique des paiements",
+        "issuetype": { "id": "10001", "name": "Story", "subtask": false, "hierarchyLevel": 0 },
+        "project": { "id": "10000", "key": "KB", "name": "Kýdos Boutique" },
+        "status": { "id": "10000", "name": "Backlog", "statusCategory": { "id": 2, "key": "new", "name": "To Do", "colorName": "blue-gray" } },
+        "priority": { "id": "5", "name": "Lowest" },
+        "resolution": null,
+        "resolutiondate": null,
+        "assignee": null,
+        "reporter": { "accountId": "5f8a9b0c1d2e3f0012345678", "displayName": "Carole Martin", "emailAddress": "carole.martin@example.com", "active": true },
+        "created": "2026-09-11T09:00:00.000+0200",
+        "updated": "2026-09-11T09:00:00.000+0200",
+        "duedate": null,
+        "versions": [],
+        "fixVersions": [ { "id": "10101", "name": "1.1.0", "archived": false, "released": false, "releaseDate": "2026-10-30" } ],
+        "components": [ { "id": "10201", "name": "Web" } ],
+        "labels": [],
+        "description": { "type": "doc", "version": 1, "content": [ { "type": "paragraph", "content": [ { "type": "text", "text": "Afficher la liste des paiements du client." } ] } ] },
+        "environment": null,
+        "timeoriginalestimate": null,
+        "timeestimate": null,
+        "timespent": null,
+        "aggregatetimeoriginalestimate": null,
+        "customfield_10016": 8,
+        "customfield_10020": null,
+        "comment": { "comments": [], "maxResults": 0, "total": 0, "startAt": 0 }
+      }
+    }
+  ]
+}

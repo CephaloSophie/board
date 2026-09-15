@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from '../../utils/dates';
 import type { ActionItem, ProjectEvent, TaxonomyItem, EventStatus } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
 import { useUpdateEvent, useDeleteEvent, useUnlinkTaskFromEvent } from '../../api/events';
@@ -100,8 +101,8 @@ export default function EventDetail({
           <label>Date / heure</label>
           <input
             type="datetime-local"
-            value={event.scheduledAt ? event.scheduledAt.slice(0, 16) : ''}
-            onChange={(e) => patch({ scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+            value={toLocalDateTimeInput(event.scheduledAt)}
+            onChange={(e) => patch({ scheduledAt: fromLocalDateTimeInput(e.target.value) })}
           />
         </div>
         <div className="field">

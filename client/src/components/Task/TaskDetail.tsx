@@ -2,11 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Task, TaxonomyItem } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
-import { useUpdateTask, useDeleteTask } from '../../api/tasks';
-import { useUsers } from '../../api/users';
+import { useUpdateTask, useDeleteTask, type TaskPatch } from '../../api/tasks';
+import { useAssignableUsers } from '../../api/members';
+import { useProjectLabels } from '../../api/projects';
 import { metaOf } from '../../utils/format';
+import { fmtDay, toDateInput } from '../../utils/dates';
 import { useAuth } from '../../context/AuthContext';
+import { useProjectRole } from '../../hooks/useProjectRole';
 import Avatar from '../common/Avatar';
+import LabelsInput from '../common/LabelsInput';
+import RichText from '../common/RichText';
+import RichTextEditor from '../common/RichTextEditor';
+import { useProjectPeople } from '../../hooks/useProjectPeople';
 import CommentList from './CommentList';
 import HistoryList from './HistoryList';
 import AddToEventPopup from './AddToEventPopup';
@@ -37,7 +44,9 @@ export default function TaskDetail({
   standalone?: boolean;
 }) {
   const { user } = useAuth();
-  const { data: users } = useUsers();
+  const { canWrite, isAdmin } = useProjectRole(projectKey);
+  const { data: users } = useAssignableUsers(projectKey);
+  const { data: labelOptions } = useProjectLabels(projectKey);
   const updateTask = useUpdateTask(projectKey);
   const deleteTask = useDeleteTask(projectKey);
 
@@ -48,8 +57,11 @@ export default function TaskDetail({
   const [complexity, setComplexity] = useState(String(task.complexity ?? 0));
   const [duration, setDuration] = useState(task.duration || '');
   const [estimate, setEstimate] = useState(task.estimate || '');
+  const [parent, setParent] = useState(task.parent || '');
   const [editingText, setEditingText] = useState(false);
   const [addingToEvent, setAddingToEvent] = useState(false);
+  const [activityTab, setActivityTab] = useState<'comments' | 'history'>('comments');
+  const people = useProjectPeople(projectKey);
 
   useEffect(() => {
     setTitle(task.title);
@@ -59,11 +71,13 @@ export default function TaskDetail({
     setComplexity(String(task.complexity ?? 0));
     setDuration(task.duration || '');
     setEstimate(task.estimate || '');
+    setParent(task.parent || '');
     setEditingText(false);
   }, [task._id]);
 
-  function field(field: string, value: unknown) {
-    updateTask.mutate({ taskId: task.taskId, data: { [field]: value } as any });
+  function field(name: string, value: unknown) {
+    if (!canWrite) return;
+    updateTask.mutate({ taskId: task.taskId, data: { [name]: value } as TaskPatch });
   }
 
   function saveText() {
@@ -77,7 +91,7 @@ export default function TaskDetail({
         complexity: Number(complexity) || 0,
         duration,
         estimate,
-      } as any,
+      },
     });
     setEditingText(false);
   }
@@ -107,6 +121,8 @@ export default function TaskDetail({
       : orderedSprints.length && currentSprintIdx === -1
       ? orderedSprints[0]
       : null;
+  const statusMeta = metaOf(taxonomies, 'status', task.status);
+  const priorityMeta = metaOf(taxonomies, 'priority', task.priority);
 
   return (
     <div>
@@ -114,17 +130,24 @@ export default function TaskDetail({
         <div style={{ flex: 1 }}>
           <div className="m-id">
             {task.taskId} {task.spec ? `· ${task.spec}` : ''}
+            {task.external?.key && (
+              <span className="tag" title="Clé d'origine (import)" style={{ marginLeft: 6 }}>
+                {task.external.source || 'externe'} : {task.external.url ? <a href={task.external.url} target="_blank" rel="noreferrer">{task.external.key}</a> : task.external.key}
+              </span>
+            )}
           </div>
           {editingText ? (
-            <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ fontSize: 17, fontWeight: 700, width: '100%' }} />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ fontSize: 17, fontWeight: 700, width: '100%' }} />
           ) : (
             <h3>{task.title}</h3>
           )}
         </div>
         <div className="row">
-          <button className="btn ghost small" onClick={() => setAddingToEvent(true)} title="Ajouter à un rituel / événement">
-            ⊕ Rituel
-          </button>
+          {canWrite && (
+            <button className="btn ghost small" onClick={() => setAddingToEvent(true)} title="Ajouter à un rituel / événement">
+              ⊕ Rituel
+            </button>
+          )}
           {!standalone && (
             <Link className="btn ghost small" to={`/projects/${projectKey}/tasks/${task.taskId}`}>
               Page dédiée ↗
@@ -149,18 +172,21 @@ export default function TaskDetail({
 
           <div className="field">
             <label>Assigné</label>
-            <select value={task.assignee?._id || ''} onChange={(e) => field('assignee', e.target.value || null)}>
+            <select value={task.assignee?._id || ''} disabled={!canWrite} onChange={(e) => field('assignee', e.target.value || null)}>
               <option value="">Non assigné</option>
-              {user && <option value={user.id}>Moi ({user.displayName})</option>}
-              {(users || [])
-                .filter((u) => u.id !== user?.id)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.displayName}
-                  </option>
-                ))}
+              {task.assignee && !(users || []).some((u) => u.id === task.assignee?._id) && (
+                <option value={task.assignee._id}>{task.assignee.displayName}</option>
+              )}
+              {(users || []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.id === user?.id ? `Moi (${u.displayName})` : u.displayName}
+                </option>
+              ))}
             </select>
-            {user && task.assignee?._id !== user.id && (
+            {!task.assignee && task.external?.assigneeName && (
+              <span className="hint">Assigné d'origine : {task.external.assigneeName}</span>
+            )}
+            {canWrite && user && task.assignee?._id !== user.id && (
               <button className="btn small" style={{ marginTop: 4 }} onClick={() => field('assignee', user.id)}>
                 M'assigner
               </button>
@@ -173,16 +199,16 @@ export default function TaskDetail({
             return (
               <div className="field" key={f}>
                 <label>{label}</label>
-                <select value={current || ''} onChange={(e) => field(f, e.target.value || null)}>
-                  <option value="">—</option>
+                <select value={current || ''} disabled={!canWrite} onChange={(e) => field(f, e.target.value || null)}>
+                  <option value="">{f === 'sprint' ? 'Backlog (sans sprint)' : '—'}</option>
                   {items.map((i) => (
                     <option key={i.key} value={i.key}>
                       {i.label}
                     </option>
                   ))}
-                  {current && !items.find((i) => i.key === current) && <option value={current}>{current}</option>}
+                  {current && !items.find((i) => i.key === current) && <option value={current}>{metaOf(taxonomies, kind, current).label}</option>}
                 </select>
-                {f === 'sprint' && (prevSprint || nextSprint) && (
+                {canWrite && f === 'sprint' && (prevSprint || nextSprint) && (
                   <div className="sprint-shift">
                     <button
                       className="btn small"
@@ -207,19 +233,53 @@ export default function TaskDetail({
           })}
 
           <div className="field">
+            <label>Étiquettes</label>
+            <LabelsInput
+              value={task.labels || []}
+              disabled={!canWrite}
+              suggestions={(labelOptions || []).map((l) => l.value)}
+              onChange={(labels) => field('labels', labels)}
+            />
+          </div>
+
+          <div className="field">
             <label>Points</label>
             <input
               type="number"
               min={0}
+              step="0.5"
               value={complexity}
+              disabled={!canWrite}
               onChange={(e) => setComplexity(e.target.value)}
               onBlur={() => Number(complexity) !== task.complexity && field('complexity', Number(complexity) || 0)}
             />
           </div>
           <div className="field">
+            <label>Échéance</label>
+            <input type="date" value={toDateInput(task.dueDate)} disabled={!canWrite} onChange={(e) => field('dueDate', e.target.value || null)} />
+          </div>
+          <div className="field">
+            <label>Tâche parente</label>
+            <input
+              type="text"
+              value={parent}
+              placeholder="ex. KB-042"
+              disabled={!canWrite}
+              onChange={(e) => setParent(e.target.value.toUpperCase())}
+              onBlur={() => parent !== (task.parent || '') && field('parent', parent.trim() || null)}
+            />
+            {task.parent && (
+              <Link className="hint" to={`/projects/${projectKey}/tasks/${task.parent}`}>
+                Ouvrir {task.parent} ↗
+              </Link>
+            )}
+          </div>
+          <div className="field">
             <label>Estimation</label>
             <input
+              type="text"
               value={estimate}
+              disabled={!canWrite}
               onChange={(e) => setEstimate(e.target.value)}
               onBlur={() => estimate !== (task.estimate || '') && field('estimate', estimate)}
               placeholder="4h"
@@ -228,7 +288,9 @@ export default function TaskDetail({
           <div className="field">
             <label>Durée réelle</label>
             <input
+              type="text"
               value={duration}
+              disabled={!canWrite}
               onChange={(e) => setDuration(e.target.value)}
               onBlur={() => duration !== (task.duration || '') && field('duration', duration)}
               placeholder="4 h"
@@ -239,40 +301,27 @@ export default function TaskDetail({
             <div className="field">
               <label>Rapporteur</label>
               <div className="row">
-                <Avatar
-                  name={typeof task.reporter === 'object' ? task.reporter.displayName : String(task.reporter)}
-                  color={typeof task.reporter === 'object' ? task.reporter.color : undefined}
-                  size="sm"
-                />
-                <span style={{ fontSize: 12 }}>
-                  {typeof task.reporter === 'object' ? task.reporter.displayName : String(task.reporter)}
-                </span>
+                <Avatar name={task.reporter.displayName} color={task.reporter.color} size="sm" />
+                <span style={{ fontSize: 12 }}>{task.reporter.displayName}</span>
               </div>
             </div>
           )}
+          <div className="task-dates">
+            <div>Créée le {fmtDay(task.createdAt)}</div>
+            <div>Modifiée le {fmtDay(task.updatedAt)}</div>
+            {task.resolvedAt && <div>Résolue le {fmtDay(task.resolvedAt)}</div>}
+          </div>
         </aside>
 
         {/* ---------- Main content ---------- */}
         <div className="task-main">
           <div className="m-row">
-            <span
-              className="tag"
-              style={{
-                borderColor: metaOf(taxonomies, 'status', task.status).color,
-                color: metaOf(taxonomies, 'status', task.status).color,
-              }}
-            >
-              {metaOf(taxonomies, 'status', task.status).label}
+            <span className="tag" style={{ borderColor: statusMeta.color, color: statusMeta.color }}>
+              {statusMeta.label}
             </span>
             {task.priority && (
-              <span
-                className="tag"
-                style={{
-                  borderColor: metaOf(taxonomies, 'priority', task.priority).color,
-                  color: metaOf(taxonomies, 'priority', task.priority).color,
-                }}
-              >
-                {task.priority} · {metaOf(taxonomies, 'priority', task.priority).label}
+              <span className="tag" style={{ borderColor: priorityMeta.color, color: priorityMeta.color }}>
+                {task.priority} · {priorityMeta.label}
               </span>
             )}
             {task.assignee && (
@@ -280,32 +329,45 @@ export default function TaskDetail({
                 <Avatar name={task.assignee.displayName} color={task.assignee.color} size="sm" /> {task.assignee.displayName}
               </span>
             )}
+            {(task.labels || []).map((l) => (
+              <span key={l} className="label-chip">
+                {l}
+              </span>
+            ))}
           </div>
 
           <div className="m-sec">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <h4 style={{ margin: 0 }}>Description &amp; contenu</h4>
-              {!editingText ? (
-                <button className="btn ghost small" onClick={() => setEditingText(true)}>
-                  Modifier
-                </button>
-              ) : (
-                <div className="row">
-                  <button className="btn ghost small" onClick={() => setEditingText(false)}>
-                    Annuler
+              {canWrite &&
+                (!editingText ? (
+                  <button className="btn ghost small" onClick={() => setEditingText(true)}>
+                    Modifier
                   </button>
-                  <button className="btn primary small" onClick={saveText} disabled={!dirty}>
-                    Enregistrer
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="row">
+                    <button className="btn ghost small" onClick={() => setEditingText(false)}>
+                      Annuler
+                    </button>
+                    <button className="btn primary small" onClick={saveText} disabled={!dirty}>
+                      Enregistrer
+                    </button>
+                  </div>
+                ))}
             </div>
 
             {editingText ? (
               <div className="stack" style={{ marginTop: 8 }}>
                 <div className="field">
                   <label>Description</label>
-                  <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+                  <RichTextEditor
+                    value={description}
+                    onChange={setDescription}
+                    projectKey={projectKey}
+                    taskId={task.taskId}
+                    rows={10}
+                    placeholder="Contexte, captures d'écran, @mentions…"
+                  />
                 </div>
                 <div className="field">
                   <label>Instructions (une par ligne)</label>
@@ -318,7 +380,12 @@ export default function TaskDetail({
               </div>
             ) : (
               <>
-                {task.description ? <p>{task.description}</p> : <p className="text-muted">Aucune description.</p>}
+                <RichText
+                  text={task.description}
+                  projectKey={projectKey}
+                  mentionLabel={people.mentionLabel}
+                  empty={<p className="text-muted">Aucune description.</p>}
+                />
                 {task.instructions.length > 0 && (
                   <>
                     <h4>Instructions</h4>
@@ -344,20 +411,31 @@ export default function TaskDetail({
           </div>
 
           <div className="m-sec">
-            <h4>Commentaires</h4>
-            <CommentList projectKey={projectKey} task={task} />
+            <div className="activity-tabs">
+              <h4 style={{ margin: 0 }}>Activité</h4>
+              <div className="view-switcher">
+                <button className={activityTab === 'comments' ? 'active' : ''} onClick={() => setActivityTab('comments')}>
+                  Commentaires ({task.comments.length})
+                </button>
+                <button className={activityTab === 'history' ? 'active' : ''} onClick={() => setActivityTab('history')}>
+                  Historique ({task.history.length})
+                </button>
+              </div>
+            </div>
+            {activityTab === 'comments' ? (
+              <CommentList projectKey={projectKey} task={task} readOnly={!canWrite} />
+            ) : (
+              <HistoryList history={task.history} taxonomies={taxonomies} userName={people.userName} />
+            )}
           </div>
 
-          <div className="m-sec">
-            <h4>Historique</h4>
-            <HistoryList history={task.history} taxonomies={taxonomies} />
-          </div>
-
-          <div className="m-sec">
-            <button className="btn danger small" onClick={handleDelete}>
-              Supprimer la tâche
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="m-sec">
+              <button className="btn danger small" onClick={handleDelete}>
+                Supprimer la tâche
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

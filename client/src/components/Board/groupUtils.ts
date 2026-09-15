@@ -42,7 +42,24 @@ const UNGROUPED_KEY = '__ungrouped__';
 // come from the project's taxonomy (so admins can rename or recolor without
 // touching the board), with sane fallbacks for values that don't have a
 // matching taxonomy row (rare but possible during data migration).
-export function groupTasks(tasks: Task[], groupBy: GroupByKey, taxonomies: TaxonomyItem[] | undefined): TaskGroup[] {
+export interface GroupOptions {
+  // Also list groups without tasks, so cards can be dropped into them: every
+  // non-finished sprint, unreleased version, assignable member, taxonomy value.
+  includeEmpty?: boolean;
+  users?: { id: string; displayName: string; color?: string }[];
+}
+
+const UNGROUPED_LABELS: Partial<Record<GroupByKey, string>> = {
+  sprint: 'Backlog (sans sprint)',
+  version: 'Sans version',
+};
+
+export function groupTasks(
+  tasks: Task[],
+  groupBy: GroupByKey,
+  taxonomies: TaxonomyItem[] | undefined,
+  opts: GroupOptions = {}
+): TaskGroup[] {
   if (groupBy === 'none') {
     return [{ key: 'all', label: 'Toutes les tâches filtrées', order: 0, tasks }];
   }
@@ -66,9 +83,14 @@ export function groupTasks(tasks: Task[], groupBy: GroupByKey, taxonomies: Taxon
         tasks: list,
       });
     }
+    if (opts.includeEmpty) {
+      for (const u of opts.users || []) {
+        if (!map.has(u.id)) groups.push({ key: u.id, label: u.displayName, color: u.color, order: 0, tasks: [] });
+      }
+    }
     groups.sort((a, b) => a.label.localeCompare(b.label));
-    if (map.has(UNGROUPED_KEY)) {
-      groups.push({ key: UNGROUPED_KEY, label: 'Non assigné', color: '#6b7280', order: 999, tasks: map.get(UNGROUPED_KEY)! });
+    if (map.has(UNGROUPED_KEY) || opts.includeEmpty) {
+      groups.push({ key: UNGROUPED_KEY, label: 'Non assigné', color: '#6b7280', order: 999, tasks: map.get(UNGROUPED_KEY) || [] });
     }
     return groups;
   }
@@ -82,15 +104,21 @@ export function groupTasks(tasks: Task[], groupBy: GroupByKey, taxonomies: Taxon
     map.get(key)!.push(t);
   }
   const groups: TaskGroup[] = [];
+  const plannable = (item: TaxonomyItem) => {
+    const status = (item.meta as { status?: string } | undefined)?.status;
+    if (kind === 'sprint') return status !== 'finished';
+    if (kind === 'version') return status !== 'released';
+    return true;
+  };
   for (const item of taxItems) {
-    if (map.has(item.key)) {
+    if (map.has(item.key) || (opts.includeEmpty && plannable(item))) {
       groups.push({
         key: item.key,
         label: item.label,
         color: item.color,
         sublabel: kind === 'sprint' ? (item.meta as { status?: string })?.status : undefined,
         order: item.order,
-        tasks: map.get(item.key)!,
+        tasks: map.get(item.key) || [],
       });
       map.delete(item.key);
     }
@@ -101,8 +129,14 @@ export function groupTasks(tasks: Task[], groupBy: GroupByKey, taxonomies: Taxon
     const item = metaOf(taxonomies, kind, key);
     groups.push({ key, label: item.label, color: item.color, order: 1000, tasks: list });
   }
-  if (map.has(UNGROUPED_KEY)) {
-    groups.push({ key: UNGROUPED_KEY, label: '— Non défini —', color: '#6b7280', order: 9999, tasks: map.get(UNGROUPED_KEY)! });
+  if (map.has(UNGROUPED_KEY) || (opts.includeEmpty && UNGROUPED_LABELS[groupBy])) {
+    groups.push({
+      key: UNGROUPED_KEY,
+      label: UNGROUPED_LABELS[groupBy] || '— Non défini —',
+      color: '#6b7280',
+      order: 9999,
+      tasks: map.get(UNGROUPED_KEY) || [],
+    });
   }
   return groups;
 }

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { errorMessage } from '../api/client';
 import { useCreateProject, useProjects } from '../api/projects';
+import { PROJECT_ROLE_META } from '../utils/status';
 
 export default function ProjectsPage() {
-  const { data: projects, isLoading } = useProjects();
+  const [showArchived, setShowArchived] = useState(false);
+  const { data: projects, isLoading } = useProjects({ archived: showArchived });
   const { user } = useAuth();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -13,9 +16,12 @@ export default function ProjectsPage() {
     <main className="board-main">
       <div className="page-toolbar" style={{ padding: '18px 0' }}>
         <h2 className="mt-0" style={{ flex: 1 }}>
-          Projets
+          {showArchived ? 'Projets archivés' : 'Projets'}
         </h2>
-        {user?.role === 'superadmin' && (
+        <button className="btn ghost small" onClick={() => setShowArchived((s) => !s)}>
+          {showArchived ? '← Projets actifs' : 'Projets archivés'}
+        </button>
+        {user?.role === 'superadmin' && !showArchived && (
           <button className="btn primary" onClick={() => setCreating(true)}>
             + Nouveau projet
           </button>
@@ -24,28 +30,25 @@ export default function ProjectsPage() {
 
       {isLoading && <div className="loadbox">Chargement des projets…</div>}
 
-      <div className="columns">
+      <div className="project-grid">
         {projects?.map((p) => (
-          <div
-            key={p._id}
-            className="card"
-            style={{ padding: 16 }}
-            onClick={() => navigate(`/projects/${p.key}/board`)}
-          >
+          <div key={p._id} className="card project-card" onClick={() => navigate(`/projects/${p.key}/board`)}>
             <div className="card__top">
               <span className="tag">{p.key}</span>
               <span className="tag">v{p.currentVersion}</span>
+              {p.access === 'members' && <span className="tag" title="Accès restreint aux membres">🔒 restreint</span>}
+              {p.myRole && <span className="tag pts" style={{ marginLeft: 'auto' }}>{PROJECT_ROLE_META[p.myRole].label}</span>}
             </div>
             <div className="card__title" style={{ fontSize: 15 }}>
               {p.name}
             </div>
-            {p.description && <p style={{ fontSize: 12, color: 'var(--mute)' }}>{p.description}</p>}
+            {p.description && <p className="project-card__desc">{p.description}</p>}
           </div>
         ))}
       </div>
 
       {!isLoading && projects?.length === 0 && (
-        <div className="empty">Aucun projet pour le moment.</div>
+        <div className="empty">{showArchived ? 'Aucun projet archivé.' : 'Aucun projet pour le moment.'}</div>
       )}
 
       {creating && <NewProjectModal onClose={() => setCreating(false)} />}
@@ -68,9 +71,9 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
     try {
       const { project } = await createProject.mutateAsync({ key, name, vendor, description, currentVersion });
       onClose();
-      navigate(`/projects/${project.key}/board`);
+      navigate(`/projects/${project.key}/settings/general`);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erreur lors de la création.');
+      setErr(errorMessage(e, 'Erreur lors de la création.'));
     }
   }
 
@@ -85,31 +88,31 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="stack">
           <div className="field">
-            <label>Clé (préfixe des tâches)</label>
-            <input value={key} onChange={(e) => setKey(e.target.value.toUpperCase())} placeholder="KB" />
+            <label>Clé (préfixe des tâches, 2 à 10 caractères)</label>
+            <input type="text" value={key} onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="KB" maxLength={10} />
           </div>
           <div className="field">
             <label>Nom</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mon projet" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mon projet" />
           </div>
           <div className="field">
             <label>Éditeur / vendor</label>
-            <input value={vendor} onChange={(e) => setVendor(e.target.value)} />
+            <input type="text" value={vendor} onChange={(e) => setVendor(e.target.value)} />
           </div>
           <div className="field">
             <label>Version actuelle</label>
-            <input value={currentVersion} onChange={(e) => setCurrentVersion(e.target.value)} />
+            <input type="text" value={currentVersion} onChange={(e) => setCurrentVersion(e.target.value)} />
           </div>
           <div className="field">
             <label>Description</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
-          {err && <div className="error" style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}
-          <button
-            className="btn primary"
-            disabled={!key || !name || createProject.isPending}
-            onClick={submit}
-          >
+          <p className="text-muted small-text">
+            Le projet est créé avec un workflow, des priorités, des types et des rituels par défaut, modifiables ensuite. Vous pourrez aussi
+            importer un export Jira depuis Paramètres → Import / Export.
+          </p>
+          {err && <div className="form-error">{err}</div>}
+          <button className="btn primary" disabled={key.length < 2 || !name || createProject.isPending} onClick={submit}>
             {createProject.isPending ? 'Création…' : 'Créer le projet'}
           </button>
         </div>

@@ -4,3 +4,7 @@ server/.env
 client/.env
 client/package-lock.json
 server/package-lock.json
+*.tsbuildinfo
+client/dist/
+logs/
+/package-lock.json

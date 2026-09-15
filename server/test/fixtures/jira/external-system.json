@@ -1,0 +1,54 @@
+{
+  "projects": [
+    {
+      "name": "Audit Démo",
+      "key": "AUD",
+      "description": "Constats d'audit.",
+      "components": ["server", "mobile"],
+      "issues": [
+        {
+          "externalId": "ARC-001",
+          "summary": "[ARC-001] Double versement des gains",
+          "issueType": "Bug",
+          "priority": "Highest",
+          "labels": ["audit-2026-09-13", "gravite-critique", "wallet"],
+          "components": ["server"],
+          "description": "*Gravité* : Critique\n\nh3. Description\nLe gagnant est payé deux fois.\n\nh3. Emplacement(s)\n* {{server/src/shared/gameEconomy.ts:39-62}}",
+          "customFieldValues": [
+            { "fieldName": "Gravité", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "Critique" },
+            { "fieldName": "Catégorie", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "Fonctionnel" },
+            { "fieldName": "Effort", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "S" },
+            { "fieldName": "CWE", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "CWE-840" }
+          ]
+        },
+        {
+          "externalId": "SEC-002",
+          "summary": "[SEC-002] Jeton stocké en clair",
+          "issueType": "Bug",
+          "priority": "High",
+          "labels": ["audit-2026-09-13", "securite"],
+          "components": ["mobile", "server"],
+          "description": "h3. Description\nLe jeton est lisible.",
+          "customFieldValues": [
+            { "fieldName": "Catégorie", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "Sécurité" },
+            { "fieldName": "Effort", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "M" }
+          ]
+        },
+        {
+          "externalId": "CHK-003",
+          "summary": "[CHK-003] Documentation des verrous",
+          "issueType": "Task",
+          "priority": "Low",
+          "labels": ["audit-2026-09-13", "documentation"],
+          "components": ["docs"],
+          "description": "h3. Description\nRéférences erronées.",
+          "customFieldValues": [
+            { "fieldName": "Catégorie", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "Sécurité" },
+            { "fieldName": "Effort", "fieldType": "com.atlassian.jira.plugin.system.customfieldtypes:textfield", "value": "L" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [{ "name": "Relates", "sourceId": "ARC-001", "destinationId": "SEC-002" }]
+}

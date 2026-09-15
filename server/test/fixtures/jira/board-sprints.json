@@ -1,0 +1,10 @@
+{
+  "maxResults": 50,
+  "startAt": 0,
+  "isLast": true,
+  "values": [
+    { "id": 1, "self": "https://example.atlassian.net/rest/agile/1.0/sprint/1", "state": "closed", "name": "KB Sprint 1", "startDate": "2026-08-24T07:00:00.000Z", "endDate": "2026-09-04T15:00:00.000Z", "completeDate": "2026-09-04T15:10:00.000Z", "createdDate": "2026-08-20T09:00:00.000Z", "originBoardId": 1, "goal": "Paiement carte de bout en bout" },
+    { "id": 2, "self": "https://example.atlassian.net/rest/agile/1.0/sprint/2", "state": "active", "name": "KB Sprint 2", "startDate": "2026-09-07T07:00:00.000Z", "endDate": "2026-09-18T15:00:00.000Z", "createdDate": "2026-09-01T09:00:00.000Z", "originBoardId": 1, "goal": "3-D Secure et corrections" },
+    { "id": 3, "self": "https://example.atlassian.net/rest/agile/1.0/sprint/3", "state": "future", "name": "KB Sprint 3", "startDate": "2026-09-21T07:00:00.000Z", "endDate": "2026-10-02T15:00:00.000Z", "createdDate": "2026-09-10T09:00:00.000Z", "originBoardId": 1, "goal": "Webhooks et historique" }
+  ]
+}

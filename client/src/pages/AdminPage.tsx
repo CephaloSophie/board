@@ -1,38 +1,28 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import TaxonomyAdmin from '../components/Admin/TaxonomyAdmin';
 import UsersAdmin from '../components/Admin/UsersAdmin';
-import ProjectSettings from '../components/Admin/ProjectSettings';
 
-type Tab = 'taxonomies' | 'users' | 'project';
-
-export default function AdminPage() {
+// Legacy /projects/:key/admin links now point to the project settings page.
+export function LegacyAdminRedirect() {
   const { projectKey } = useParams();
-  const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>('taxonomies');
-  if (!projectKey) return null;
+  return <Navigate to={`/projects/${projectKey}/settings/general`} replace />;
+}
 
+// Global user administration (/admin/users), superadmin only.
+export default function AdminPage() {
+  const { user } = useAuth();
+  if (user?.role !== 'superadmin') return <Navigate to="/projects" replace />;
   return (
-    <div className="admin-layout">
-      <nav className="admin-nav">
-        <button className={tab === 'taxonomies' ? 'active' : ''} onClick={() => setTab('taxonomies')}>
-          Taxonomies
-        </button>
-        {user?.role === 'superadmin' && (
-          <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
-            Utilisateurs
-          </button>
-        )}
-        <button className={tab === 'project' ? 'active' : ''} onClick={() => setTab('project')}>
-          Projet
-        </button>
-      </nav>
-      <div className="admin-panel">
-        {tab === 'taxonomies' && <TaxonomyAdmin projectKey={projectKey} />}
-        {tab === 'users' && user?.role === 'superadmin' && <UsersAdmin />}
-        {tab === 'project' && <ProjectSettings projectKey={projectKey} />}
+    <main className="settings-page">
+      <div className="settings-head">
+        <div>
+          <div className="settings-head__eyebrow">Administration globale</div>
+          <h2>Utilisateurs</h2>
+        </div>
       </div>
-    </div>
+      <div className="admin-panel settings-panel">
+        <UsersAdmin />
+      </div>
+    </main>
   );
 }

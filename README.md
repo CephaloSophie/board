@@ -1,161 +1,74 @@
 # Kýdos Board
 
-Application de gestion de tâches façon Jira (single page app), avec sauvegarde
-MongoDB, inspirée du board statique `board.html` / `tasks.json` d'origine.
+Gestion de projet agile façon Jira — et au-delà : board multi-vues, filtres dynamiques et
+enregistrés, dashboards personnalisables, cycle de vie des sprints, rituels agiles intégrés et
+**import depuis Jira** avec simulation et annulation. SPA React + API Express / MongoDB.
+
+Documentation :
+- [Fonctionnalités](docs/FEATURES.md)
+- [API](docs/API.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Installation & exploitation](docs/INSTALLATION.md)
+- [Mise en production sur le VPS AlmaLinux (board.kantoaplo.com, PM2, nginx existant, HTTPS)](VPSCONFIGURATION.md)
+- Specs produit : [analyse chef de projet](docs/product/PM_ANALYSIS.md) · [import Jira & Scrum](docs/product/SCRUM_JIRA_IMPORT_SPEC.md)
 
 ## Stack
 
-- **Backend** : Node.js, Express, Mongoose (MongoDB), JWT.
-- **Frontend** : React + TypeScript + Vite, `@tanstack/react-query`, `@dnd-kit` (drag & drop).
+- **Backend** : Node.js 20+, Express 4, Mongoose 8 (MongoDB), JWT.
+- **Frontend** : React 18 + TypeScript + Vite, `@tanstack/react-query`, `@dnd-kit`.
+- Graphiques, parseur CSV et grille de dashboard maison (aucune dépendance supplémentaire).
 - 4 thèmes : sombre (défaut), clair, Ubuntu, Mac.
 
-## Démarrage rapide (Docker)
+## Installation et lancement
+
+Guide complet (local, VPS, PM2, nginx / HTTPS, mises à jour, sauvegardes, dépannage) :
+**[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+
+Prérequis : Node.js 20+, MongoDB, PM2 (`npm install -g pm2`). Ports : **API 7002**, **front 7001**.
 
 ```bash
-docker compose up --build -d
-docker compose run --rm app node src/seed/seed.js   # importe tasks.json + crée les comptes
+npm run setup          # dépendances server/ et client/
+npm run env:init       # server/.env et client/.env (secret JWT généré) — vérifier MONGODB_URI
+npm run seed           # projet KB, comptes, version et sprint courants 19.0.3
+npm run build          # build du front
+npm start              # PM2 : kydos-server (API) + kydos-client (front)
+npm run health
 ```
 
-L'application est servie sur http://localhost:7002.
+| Commande (racine) | Effet |
+|---|---|
+| `npm start` · `npm run start:dev` | production (front construit) · développement (rechargement à chaud) |
+| `npm run reload` · `npm run stop` · `npm run logs` · `npm run status` | exploitation PM2 |
+| `npm run deploy` | git pull, dépendances, build, aperçu de migration, reload sans coupure |
+| `npm run migrate -- --dry-run` · `npm run release:align -- --dry-run` | mise à niveau d'une base existante, alignement sur la version 19.0.3 |
+| `npm run admin:create` · `npm run admin:list` | créer / promouvoir un super admin en console · lister les super admins |
+| `npm test` · `npm run typecheck` | tests serveur, typage du front |
 
-## Démarrage en local (sans Docker)
+Sans PM2 : `cd server && npm run dev` et `cd client && npm run dev`. Docker : `docker compose up --build -d`.
 
-Prérequis : Node.js 20+, une instance MongoDB accessible (locale ou Atlas).
-
-Ports par défaut : **serveur/API 7002**, **client 7001**.
-
-```bash
-# Serveur
-cd server
-npm install
-cp .env.example .env      # déjà pré-rempli (MongoDB local root:toor, port 7002)
-npm run seed               # importe tasks.json (projet Kýdos Belote) + comptes superadmin
-npm run dev                 # http://localhost:7002
-
-# Client (autre terminal)
-cd client
-npm install
-cp .env.example .env      # VITE_PORT=7001, VITE_API_PROXY_TARGET=http://localhost:7002
-npm run dev                 # http://localhost:7001 (proxy /api -> :7002)
-```
-
-Le serveur charge automatiquement `server/.env` quel que soit le dossier de
-lancement (dotenv pointé sur le fichier, pas sur le cwd).
-
-## Lancement avec PM2
-
-Un fichier PM2 est fourni pour chaque partie ; chacun lit son propre `.env`.
-
-```bash
-# API (server/.env → port 7002, MongoDB…)
-cd server && npm install && npm run seed
-pm2 start ecosystem.config.js
-
-# Client (client/.env → port 7001, proxy /api → 7002)
-cd ../client && npm install
-pm2 start ecosystem.config.cjs
-
-pm2 status         # kydos-server + kydos-client
-pm2 logs           # journaux
-pm2 save           # persister au reboot
-```
-
-Le fichier client lance le serveur Vite (rechargement à chaud). Pour servir un
-build de production à la place : `npm run build` puis remplacer les `args` du
-`ecosystem.config.cjs` par `preview --host --port 7001`.
+**Production sur le VPS** (https://board.kantoaplo.com) : `npm run env:vps`, `npm run start:vps`,
+`sudo bash deploy/vps/setup-https.sh <email>`, mises à jour `npm run deploy:vps` — voir [VPSCONFIGURATION.md](VPSCONFIGURATION.md).
 
 ## Comptes par défaut (créés par le seed)
 
-| Identifiant | Rôle       | Mot de passe   |
-|-------------|-----------|----------------|
-| `ameur`     | superadmin | `@bloardKydos` |
-| `hamido`    | superadmin | `@bloardKydos` |
+| Identifiant | Rôle | Mot de passe |
+|---|---|---|
+| `ameur` | superadmin | `@bloardKydos` |
+| `hamido` | superadmin | `@bloardKydos` |
 
-Le super admin crée les comptes développeurs depuis **Administration → Utilisateurs**.
+Changez ces mots de passe en production (Utilisateurs → Mot de passe…).
 
-## Modèle de données MongoDB
+## En bref
 
-- `User` — comptes (rôle `superadmin` ou `developer`).
-- `Project` — un projet = une clé (`KB`), un nom, une version courante.
-- `Taxonomy` — collection **unique** pour les 8 dimensions configurables par
-  projet (`status`, `priority`, `type`, `category`, `techno`, `area`,
-  `version`, `sprint`), au lieu de 8 collections dupliquées. Chaque entrée a
-  une `key`, un `label`, une `color`, un `order` et un `meta` libre (ex.
-  `{ isDone: true }` sur un statut, ou `{ linkedVersion }` sur un sprint).
-- `Task` — la tâche : champs métier (statut, priorité, sprint, version,
-  assigné…), plus deux sous-documents :
-  - `comments[]` (auteur, texte, dates),
-  - `history[]` (journal auto-généré à chaque changement de champ suivi :
-    statut, priorité, assigné, sprint, version, type, catégorie, techno,
-    domaine, points).
-- `Event` — un rituel / événement agile (refinement, grooming, point
-  technique, point architecture, préparation de démo, rétrospective…),
-  rattachable à un sprint, avec participants, tâches liées, ordre du jour,
-  décisions, actions à suivre, champs ADR (architecture) et ordre de démo.
-  Les sections affichées sont pilotées par `meta.features` du type
-  d'événement — chaque type n'expose que ce qui le concerne.
-- `Counter` — un compteur par projet pour générer les identifiants `KB-155`, etc.
+- **Board** : vues Board / Jira / Liste, regroupement par n'importe quelle dimension, glisser-déposer.
+- **Filtres** : listes déroulantes multi-sélection, valeurs dynamiques (Moi, Sprint courant, Backlog…),
+  état dans l'URL, filtres enregistrés privés / partagés, favoris et filtre par défaut.
+- **Dashboards** : modèles, grille libre, 10 widgets (burndown, vélocité, charge, répartitions,
+  tableau croisé…), filtre global, partage.
+- **Sprints & versions** : démarrer, clôturer avec report et rétrospective pré-remplie, publier.
+- **Administration projet** : général, sprints & versions, membres & rôles, workflow, taxonomies,
+  import / export, zone dangereuse.
+- **Import Jira** (CSV ou JSON API + sprints + versions) et **export** JSON / CSV compatible Jira.
+- **Rituels** : refinement, grooming, point technique, architecture (ADR), démo, rétrospective.
 
-Le `Project` porte aussi la cadence des sprints : `sprintDurationValue` +
-`sprintDurationUnit` (jours/semaines, défaut **1 semaine**) et
-`currentSprint`. Modifier la durée n'affecte **que les futurs sprints** —
-chaque sprint stocke ses propres dates, donc rien n'est recalculé
-rétroactivement.
-
-Un nouveau projet peut être créé depuis l'écran **Projets** (super admin) : il
-reçoit automatiquement un jeu de taxonomies par défaut, prêtes à être
-adaptées.
-
-## Fonctionnalités
-
-- 3 types d'affichage du board : **Board** (groupé façon board.html d'origine,
-  avec choix de la dimension de regroupement), **Jira** (kanban simple par
-  statut) et **Liste** (tableau triable).
-- Drag & drop des cartes entre colonnes de statut (met à jour la tâche et
-  journalise le changement).
-- Assignation d'une tâche à soi-même ou à un autre utilisateur.
-- Changement du sprint / de la version d'une tâche.
-- Commentaires sur chaque tâche.
-- Historique complet des modifications (statut, champs, notes).
-- Filtres multi-sélection combinables sur chaque dimension (statut, priorité,
-  type, catégorie, techno, version, sprint, domaine, assigné) + recherche
-  libre (id, titre, mots-clés du contenu).
-- Gestion des taxonomies (statuts, priorités, catégories, technos, domaines,
-  types, versions, sprints) par projet : ajout / modification / suppression.
-- Consultation d'une tâche en popup ou sur une page dédiée
-  (`/projects/:key/tasks/:taskId`).
-- Gestion des utilisateurs par le super admin (création des comptes
-  développeurs, rôles).
-- Création de nouveaux projets.
-- **Regroupement multi-boards** : dans les 3 vues, on choisit une dimension
-  de regroupement (sprint, version, catégorie, techno, domaine, type,
-  priorité, statut, assigné) ; chaque groupe s'affiche comme son propre
-  mini-board avec ses colonnes de statut et une barre de stats (points à
-  faire / en cours / terminés, total, estimation, non assignés) — utile pour
-  le PO / scrum master. Une barre latérale liste les groupes et met en avant
-  le sprint courant.
-- **Sprints configurables** : statut (brouillon / prêt / actif / terminé),
-  dates de début/fin, objectif ; durée par défaut des futurs sprints réglée
-  dans les paramètres du projet ; sélection du sprint courant ; boutons
-  « sprint précédent / suivant » sur chaque tâche.
-- **Espace Rituels & événements** : créer et gérer refinement, grooming,
-  point technique, point architecture, préparation de démo, rétrospective
-  (types configurables par le super admin, avec icône et sections propres à
-  chaque type). Rattachement à un sprint, participants, tâches liées.
-- **Ajout rapide d'une tâche à un événement** : une icône ⊕ sur chaque carte
-  de tâche (et dans le détail) ouvre un popup pour la rattacher à un
-  événement existant ou en créer un à la volée.
-- Archivage (au lieu de suppression) de n'importe quelle taxonomie encore
-  utilisée.
-
-## Limite connue de cet environnement de build
-
-Le bac à sable utilisé pour développer cette application n'a pas d'accès
-réseau vers une instance MongoDB réelle (les téléchargements de binaires
-MongoDB et les connexions TCP brutes vers une base de données sont bloqués
-par la politique réseau de l'environnement). Le code a donc été vérifié par
-compilation (`tsc`, `vite build`), vérification syntaxique de tous les
-fichiers serveur et chargement de tous les modules Express/Mongoose, mais
-**pas testé de bout en bout contre une vraie base MongoDB**. Il est
-recommandé de lancer `docker compose up --build` (ou un serveur MongoDB
-local) et de vérifier le flux complet avant mise en production.
+Détails : [docs/FEATURES.md](docs/FEATURES.md).

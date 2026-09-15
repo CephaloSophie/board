@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'board.token';
+export const AUTH_EXPIRED_EVENT = 'board:auth-expired';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -11,10 +12,18 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  body?: Record<string, unknown>;
+  constructor(message: string, status: number, body?: Record<string, unknown>) {
     super(message);
     this.status = status;
+    this.code = typeof body?.code === 'string' ? body.code : undefined;
+    this.body = body;
   }
+}
+
+export function errorMessage(e: unknown, fallback = 'Une erreur est survenue.'): string {
+  return e instanceof Error ? e.message : fallback;
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -30,8 +39,12 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const body = isJson ? await res.json() : null;
 
   if (!res.ok) {
-    if (res.status === 401) setToken(null);
-    throw new ApiError(body?.error || `Erreur HTTP ${res.status}`, res.status);
+    if (res.status === 401 && token) {
+      setToken(null);
+      // Lets AuthContext drop the user and route back to the login screen.
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    }
+    throw new ApiError(body?.error || `Erreur HTTP ${res.status}`, res.status, body || undefined);
   }
   return body as T;
 }
