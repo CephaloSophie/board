@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Task, TaxonomyItem } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
-import { useUpdateTask, useDeleteTask, type TaskPatch } from '../../api/tasks';
+import { useUpdateTask, useDeleteTask, useSubtasks, type TaskPatch } from '../../api/tasks';
+import { errorMessage } from '../../api/client';
 import { useAssignableUsers } from '../../api/members';
 import { useProjectLabels } from '../../api/projects';
 import { metaOf } from '../../utils/format';
@@ -17,6 +18,10 @@ import { useProjectPeople } from '../../hooks/useProjectPeople';
 import CommentList from './CommentList';
 import HistoryList from './HistoryList';
 import AddToEventPopup from './AddToEventPopup';
+import TaskCriteria from './TaskCriteria';
+import TaskMergeRequests from './MergeRequestList';
+import SubtaskPanel from './SubtaskPanel';
+import TaskPicker from '../common/TaskPicker';
 
 // Fields that live in the left sidebar of the detail view (Jira-style).
 const SIDE_DIMENSIONS = [
@@ -36,12 +41,15 @@ export default function TaskDetail({
   taxonomies,
   onClose,
   standalone,
+  onOpenTask,
 }: {
   projectKey: string;
   task: Task;
   taxonomies: TaxonomyItem[] | undefined;
   onClose?: () => void;
   standalone?: boolean;
+  // Navigate to another task in place (parent, sub-task) instead of leaving the page.
+  onOpenTask?: (taskId: string) => void;
 }) {
   const { user } = useAuth();
   const { canWrite, isAdmin } = useProjectRole(projectKey);
@@ -53,11 +61,12 @@ export default function TaskDetail({
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [instructions, setInstructions] = useState(task.instructions.join('\n'));
-  const [acceptance, setAcceptance] = useState(task.acceptance.join('\n'));
   const [complexity, setComplexity] = useState(String(task.complexity ?? 0));
   const [duration, setDuration] = useState(task.duration || '');
   const [estimate, setEstimate] = useState(task.estimate || '');
-  const [parent, setParent] = useState(task.parent || '');
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const { data: tree } = useSubtasks(projectKey, task.taskId);
   const [editingText, setEditingText] = useState(false);
   const [addingToEvent, setAddingToEvent] = useState(false);
   const [activityTab, setActivityTab] = useState<'comments' | 'history'>('comments');
@@ -67,17 +76,25 @@ export default function TaskDetail({
     setTitle(task.title);
     setDescription(task.description);
     setInstructions(task.instructions.join('\n'));
-    setAcceptance(task.acceptance.join('\n'));
     setComplexity(String(task.complexity ?? 0));
     setDuration(task.duration || '');
     setEstimate(task.estimate || '');
-    setParent(task.parent || '');
+    setFieldError(null);
     setEditingText(false);
   }, [task._id]);
 
   function field(name: string, value: unknown) {
     if (!canWrite) return;
-    updateTask.mutate({ taskId: task.taskId, data: { [name]: value } as TaskPatch });
+    setFieldError(null);
+    updateTask.mutate({ taskId: task.taskId, data: { [name]: value } as TaskPatch }, { onError: (e) => setFieldError(errorMessage(e)) });
+  }
+
+  function copyLink() {
+    const url = `${window.location.origin}/projects/${projectKey}/tasks/${task.taskId}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
   }
 
   function saveText() {
@@ -87,7 +104,6 @@ export default function TaskDetail({
         title,
         description,
         instructions: instructions.split('\n').map((s) => s.trim()).filter(Boolean),
-        acceptance: acceptance.split('\n').map((s) => s.trim()).filter(Boolean),
         complexity: Number(complexity) || 0,
         duration,
         estimate,
@@ -105,7 +121,6 @@ export default function TaskDetail({
     title !== task.title ||
     description !== task.description ||
     instructions !== task.instructions.join('\n') ||
-    acceptance !== task.acceptance.join('\n') ||
     Number(complexity) !== task.complexity ||
     duration !== (task.duration || '') ||
     estimate !== (task.estimate || '');
@@ -148,6 +163,9 @@ export default function TaskDetail({
               ⊕ Rituel
             </button>
           )}
+          <button className="btn ghost small" onClick={copyLink} title="Copier le lien de la tâche">
+            {copied ? '✓ Copié' : '🔗 Lien'}
+          </button>
           {!standalone && (
             <Link className="btn ghost small" to={`/projects/${projectKey}/tasks/${task.taskId}`}>
               Page dédiée ↗
@@ -260,19 +278,25 @@ export default function TaskDetail({
           </div>
           <div className="field">
             <label>Tâche parente</label>
-            <input
-              type="text"
-              value={parent}
-              placeholder="ex. KB-042"
+            <TaskPicker
+              projectKey={projectKey}
+              taxonomies={taxonomies}
               disabled={!canWrite}
-              onChange={(e) => setParent(e.target.value.toUpperCase())}
-              onBlur={() => parent !== (task.parent || '') && field('parent', parent.trim() || null)}
+              value={task.parent ? { taskId: task.parent, title: tree?.ancestors[0]?.taskId === task.parent ? tree.ancestors[0].title : undefined } : null}
+              exclude={[task.taskId, ...(tree?.subtasks.map((s) => s.taskId) || [])]}
+              placeholder="Module, package, epic…"
+              onPick={(picked) => field('parent', picked ? picked.taskId : null)}
             />
-            {task.parent && (
-              <Link className="hint" to={`/projects/${projectKey}/tasks/${task.parent}`}>
-                Ouvrir {task.parent} ↗
-              </Link>
-            )}
+            {task.parent &&
+              (onOpenTask ? (
+                <button className="link-btn hint" onClick={() => onOpenTask(task.parent!)}>
+                  Ouvrir {task.parent} ↗
+                </button>
+              ) : (
+                <Link className="hint" to={`/projects/${projectKey}/tasks/${task.parent}`}>
+                  Ouvrir {task.parent} ↗
+                </Link>
+              ))}
           </div>
           <div className="field">
             <label>Estimation</label>
@@ -306,6 +330,7 @@ export default function TaskDetail({
               </div>
             </div>
           )}
+          {fieldError && <div className="form-error">{fieldError}</div>}
           <div className="task-dates">
             <div>Créée le {fmtDay(task.createdAt)}</div>
             <div>Modifiée le {fmtDay(task.updatedAt)}</div>
@@ -373,10 +398,6 @@ export default function TaskDetail({
                   <label>Instructions (une par ligne)</label>
                   <textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
                 </div>
-                <div className="field">
-                  <label>Critères d'acceptation (un par ligne)</label>
-                  <textarea rows={3} value={acceptance} onChange={(e) => setAcceptance(e.target.value)} />
-                </div>
               </div>
             ) : (
               <>
@@ -396,19 +417,41 @@ export default function TaskDetail({
                     </ul>
                   </>
                 )}
-                {task.acceptance.length > 0 && (
-                  <>
-                    <h4>Critères d'acceptation</h4>
-                    <ul>
-                      {task.acceptance.map((a, idx) => (
-                        <li key={idx}>{a}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
               </>
             )}
           </div>
+
+          <section className="m-sec task-section">
+            <h4>
+              Critères d'acceptation
+              {task.criteria && task.criteria.length > 0 && (
+                <span className="task-section__count">
+                  {task.criteria.filter((c) => c.done).length}/{task.criteria.length}
+                </span>
+              )}
+            </h4>
+            <TaskCriteria projectKey={projectKey} task={task} readOnly={!canWrite} />
+          </section>
+
+          <section className="m-sec task-section">
+            <h4>
+              Sous-tâches
+              {tree && tree.rollup.total > 0 && (
+                <span className="task-section__count">
+                  {tree.rollup.done}/{tree.rollup.total}
+                </span>
+              )}
+            </h4>
+            <SubtaskPanel projectKey={projectKey} task={task} taxonomies={taxonomies} readOnly={!canWrite} onOpenTask={onOpenTask} />
+          </section>
+
+          <section className="m-sec task-section">
+            <h4>
+              Merge requests
+              {(task.mergeRequests?.length || 0) > 0 && <span className="task-section__count">{task.mergeRequests!.length}</span>}
+            </h4>
+            <TaskMergeRequests projectKey={projectKey} task={task} readOnly={!canWrite} />
+          </section>
 
           <div className="m-sec">
             <div className="activity-tabs">

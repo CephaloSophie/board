@@ -5,7 +5,7 @@ import { useProjectPeople } from '../../hooks/useProjectPeople';
 import type { ActivityEntry, TaxonomyItem } from '../../types';
 import { fmtDate, metaOf } from '../../utils/format';
 import { fmtDayLabel, fmtTime, localDayKey } from '../../utils/dates';
-import { FIELD_ICONS, FIELD_LABELS, labelForValue } from '../../utils/historyFormat';
+import { EVENT_FIELDS, FIELD_ICONS, FIELD_LABELS, eventSentence, labelForValue } from '../../utils/historyFormat';
 import Avatar from '../common/Avatar';
 
 const SCOPE_ICONS: Record<string, string> = { task: '✎', comment: '💬', sprint: '🏃', version: '🏷', project: '⚙', import: '⇪' };
@@ -21,6 +21,16 @@ function describe(e: ActivityEntry, taxonomies: TaxonomyItem[] | undefined, user
       return <>a supprimé la tâche</>;
     case 'task.updated': {
       const label = FIELD_LABELS[e.field || ''] || e.field;
+      if (EVENT_FIELDS.has(e.field || '')) {
+        const ev = eventSentence(e.field || '', e.note, e.from, e.to);
+        return (
+          <>
+            {ev.verb.charAt(0).toLowerCase() + ev.verb.slice(1)}
+            {ev.detail && <span className="timeline__note"> {ev.detail}</span>}
+            {quote(ev.quote)}
+          </>
+        );
+      }
       if (TEXT_FIELDS.has(e.field || '')) return <>a modifié <b>{label}</b>{quote(e.to)}</>;
       return (
         <>
@@ -37,6 +47,14 @@ function describe(e: ActivityEntry, taxonomies: TaxonomyItem[] | undefined, user
       return <>a modifié un commentaire{quote(e.to)}</>;
     case 'comment.deleted':
       return <>a supprimé un commentaire{quote(e.from)}</>;
+    case 'comment.pinned':
+      return <>a épinglé un commentaire{quote(e.to)}</>;
+    case 'comment.unpinned':
+      return <>a désépinglé un commentaire{quote(e.to)}</>;
+    case 'comment.resolved':
+      return <>a résolu une discussion{quote(e.to)}</>;
+    case 'comment.reopened':
+      return <>a rouvert une discussion{quote(e.to)}</>;
     case 'reaction.added':
       return <>a réagi {String(e.to || '')} à un commentaire</>;
     default:
@@ -102,7 +120,7 @@ export default function ActivityFeed({
                     </span>
                   )}
                   <b>{actor}</b> {describe(e, taxonomies, people.userName)}
-                  {e.note && e.scope === 'task' && e.action === 'task.updated' && !compact && <span className="timeline__note"> — {e.note}</span>}
+                  {e.note && e.scope === 'task' && e.action === 'task.updated' && !EVENT_FIELDS.has(e.field || '') && !compact && <span className="timeline__note"> — {e.note}</span>}
                   {!compact && (e.sprints?.length || e.versions?.length) ? (
                     <span className="timeline__chips">
                       {(e.sprints || []).map((k) => (

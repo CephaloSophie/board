@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useDraggable } from '@dnd-kit/core';
 import type { Task, TaxonomyItem } from '../../types';
 import { metaOf } from '../../utils/format';
+import { MR_STATE_META } from '../../utils/mergeRequests';
+import type { MergeRequestState } from '../../types';
 import Avatar from '../common/Avatar';
 import AddToEventPopup from '../Task/AddToEventPopup';
 
@@ -22,6 +24,12 @@ export default function TaskCard({
   });
   const pm = metaOf(taxonomies, 'priority', task.priority);
   const [addingToEvent, setAddingToEvent] = useState(false);
+  const criteria = task.criteria || [];
+  const criteriaDone = criteria.filter((c) => c.done).length;
+  const subtasks = task.subtaskStats;
+  const mrs = task.mergeRequests || [];
+  // The most advanced state wins (merged > open > draft > closed).
+  const mrState = (['merged', 'open', 'draft', 'closed'] as MergeRequestState[]).find((st) => mrs.some((m) => m.state === st));
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 10 }
@@ -58,7 +66,31 @@ export default function TaskCard({
           </button>
         )}
       </div>
+      {task.parent && (
+        <div className="card__parent" title={`Sous-tâche de ${task.parent}`}>
+          ↥ {task.parent}
+        </div>
+      )}
       <div className="card__title">{task.title}</div>
+      {(criteria.length > 0 || subtasks || mrs.length > 0) && (
+        <div className="card__progress">
+          {subtasks && (
+            <span className={`card__badge${subtasks.done === subtasks.total ? ' ok' : ''}`} title={`${subtasks.done} / ${subtasks.total} sous-tâche(s) terminée(s)`}>
+              ⊟ {subtasks.done}/{subtasks.total}
+            </span>
+          )}
+          {criteria.length > 0 && (
+            <span className={`card__badge${criteriaDone === criteria.length ? ' ok' : ''}`} title={`${criteriaDone} / ${criteria.length} critère(s) d'acceptation validé(s)`}>
+              ☑ {criteriaDone}/{criteria.length}
+            </span>
+          )}
+          {mrs.length > 0 && mrState && (
+            <span className="card__badge" style={{ color: MR_STATE_META[mrState].color }} title={`${mrs.length} merge request(s) · ${MR_STATE_META[mrState].label}`}>
+              ⑂ {mrs.length > 1 ? mrs.length : MR_STATE_META[mrState].label}
+            </span>
+          )}
+        </div>
+      )}
       <div className="card__tags">
         {task.type && <span className="tag type">{task.type}</span>}
         {task.category && <span className="tag">{task.category}</span>}

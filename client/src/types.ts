@@ -233,6 +233,67 @@ export interface Comment {
   parent?: string | null;
   mentions?: string[];
   reactions?: Reaction[];
+  pinned?: boolean;
+  pinnedAt?: string;
+  pinnedBy?: string;
+  resolved?: boolean;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export interface CriterionComment {
+  _id: string;
+  author: UserRef | string | null;
+  text: string;
+  createdAt: string;
+  editedAt?: string;
+}
+
+// Acceptance criterion (array order = priority).
+export interface Criterion {
+  _id: string;
+  text: string;
+  done: boolean;
+  doneAt?: string | null;
+  doneBy?: UserRef | string | null;
+  comments: CriterionComment[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CriteriaProgress {
+  total: number;
+  done: number;
+}
+
+export type MergeRequestState = 'draft' | 'open' | 'merged' | 'closed';
+export type MergeRequestProvider = 'gitlab' | 'github' | 'bitbucket' | 'azure' | 'gitea' | 'other';
+
+export interface MergeRequest {
+  _id: string;
+  url: string;
+  title?: string;
+  provider: MergeRequestProvider;
+  repo?: string;
+  ref?: string;
+  state: MergeRequestState;
+  addedBy?: UserRef | string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubtaskStats {
+  total: number;
+  done: number;
+  points: number;
+  donePoints: number;
+}
+
+export interface SubtaskTree {
+  subtasks: Task[];
+  ancestors: { taskId: string; title: string; status: string; type?: string }[];
+  rollup: SubtaskStats;
+  subtaskStats: Record<string, SubtaskStats>;
 }
 
 export type ActivityScope = 'task' | 'comment' | 'sprint' | 'version' | 'project' | 'import';
@@ -257,7 +318,7 @@ export interface ActivityEntry {
   data?: Record<string, unknown>;
 }
 
-export type NotificationType = 'mention' | 'assigned' | 'comment' | 'reply' | 'reaction' | 'status';
+export type NotificationType = 'mention' | 'assigned' | 'comment' | 'reply' | 'reaction' | 'status' | 'criteria' | 'merge_request' | 'subtask';
 
 export interface AppNotification {
   _id: string;
@@ -324,7 +385,12 @@ export interface Task {
   complexity: number;
   spec?: string;
   instructions: string[];
+  // Plain mirror of `criteria` (kept by the server); display `criteria`.
   acceptance: string[];
+  criteria?: Criterion[];
+  mergeRequests?: MergeRequest[];
+  // Board rows only (merged from the list response): sub-task counters.
+  subtaskStats?: SubtaskStats;
   assignee?: UserRef | null;
   reporter?: UserRef | null;
   labels: string[];

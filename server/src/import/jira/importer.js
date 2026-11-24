@@ -571,6 +571,8 @@ async function runJiraImport({ project, user, bundle, mapping: mappingInput, opt
         title: m.title,
         description: m.description,
         acceptance: m.acceptance,
+        // insertMany skips the save hook: build the structured criteria here.
+        criteria: (m.acceptance || []).filter((t) => String(t || '').trim()).map((t) => ({ text: String(t).trim(), done: false })),
         instructions: [],
         type: m.type || undefined,
         status: m.status,

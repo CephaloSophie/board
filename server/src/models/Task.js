@@ -1,4 +1,6 @@
 const { Schema, model } = require('mongoose');
+const { syncCriteriaOnSave } = require('../utils/criteria');
+const { MR_STATES, MR_PROVIDERS } = require('../utils/mergeRequests');
 
 const reactionSchema = new Schema(
   {
@@ -19,6 +21,51 @@ const commentSchema = new Schema(
     parent: { type: Schema.Types.ObjectId, default: null }, // reply to another comment of the same task (one level)
     mentions: { type: [Schema.Types.ObjectId], default: undefined },
     reactions: { type: [reactionSchema], default: undefined },
+    // Pinned comments are listed first; a resolved thread is collapsed by default.
+    pinned: { type: Boolean, default: undefined },
+    pinnedAt: { type: Date },
+    pinnedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    resolved: { type: Boolean, default: undefined },
+    resolvedAt: { type: Date },
+    resolvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  },
+  { timestamps: true }
+);
+
+// Discussion attached to one acceptance criterion (test notes, screenshots, links).
+const criterionCommentSchema = new Schema(
+  {
+    author: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    text: { type: String, required: true, trim: true, maxlength: 20000 },
+    editedAt: { type: Date },
+    mentions: { type: [Schema.Types.ObjectId], default: undefined },
+  },
+  { timestamps: true }
+);
+
+// Acceptance criterion: ordered (array order = priority), checkable, commentable.
+const criterionSchema = new Schema(
+  {
+    text: { type: String, required: true, trim: true, maxlength: 5000 },
+    done: { type: Boolean, default: false },
+    doneAt: { type: Date, default: null },
+    doneBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    comments: { type: [criterionCommentSchema], default: [] },
+  },
+  { timestamps: true }
+);
+
+// Merge / pull request pasted by the developer.
+const mergeRequestSchema = new Schema(
+  {
+    url: { type: String, required: true, trim: true, maxlength: 2000 },
+    title: { type: String, trim: true, maxlength: 300 },
+    provider: { type: String, enum: MR_PROVIDERS, default: 'other' },
+    repo: { type: String, trim: true },
+    ref: { type: String, trim: true }, // "!42" (GitLab) or "#7" (GitHub…)
+    state: { type: String, enum: MR_STATES, default: 'open' },
+    addedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true }
 );
@@ -81,7 +128,10 @@ const taskSchema = new Schema(
     spec: { type: String, trim: true },
 
     instructions: { type: [String], default: [] },
+    // Plain mirror of `criteria[].text` (search, CSV, Jira re-import); kept in sync on save.
     acceptance: { type: [String], default: [] },
+    criteria: { type: [criterionSchema], default: [] },
+    mergeRequests: { type: [mergeRequestSchema], default: [] },
 
     assignee: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reporter: { type: Schema.Types.ObjectId, ref: 'User', default: null },
@@ -114,10 +164,16 @@ taskSchema.index({ project: 1, sprint: 1 });
 taskSchema.index({ project: 1, assignee: 1 });
 taskSchema.index({ project: 1, updatedAt: -1 });
 taskSchema.index({ project: 1, labels: 1 });
+taskSchema.index({ project: 1, parent: 1 });
 taskSchema.index(
   { project: 1, 'external.source': 1, 'external.key': 1 },
   { unique: true, partialFilterExpression: { 'external.key': { $exists: true } } }
 );
 taskSchema.index({ title: 'text', description: 'text' });
+
+taskSchema.pre('save', function syncCriteria(next) {
+  syncCriteriaOnSave(this);
+  next();
+});
 
 module.exports = { Task: model('Task', taskSchema) };

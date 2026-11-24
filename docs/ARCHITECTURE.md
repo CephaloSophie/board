@@ -26,6 +26,11 @@ dashboards/widgets.js        catalogue et validation des widgets, modèles de da
 import/csv.js                parseur RFC 4180 + toCsv
 import/jira/                 parseFiles (détection, CSV, JSON), dates, markup (ADF / wiki), suggest (correspondances), importer (plan + écriture + rollback)
 migrations/2026-09-lot1.js   migration idempotente des données antérieures au Lot 1
+migrations/2026-11-board-001.js  conversion idempotente de l'ancien `acceptance` en `criteria` (npm run migrate:board-001)
+utils/criteria.js            critères d'acceptation : saisie, synchronisation avec le miroir `acceptance`, ordre
+utils/mergeRequests.js       validation des liens de merge request, forge / dépôt / numéro
+utils/subtasks.js            hiérarchie : assertValidParent (boucles, profondeur), ancestorsOf, subtaskStats
+utils/taskEvents.js          findTask, FULL_POPULATE, ensureCriteria, recordTaskEvents (historique + journal des événements)
 seed/seed.js                 import de tasks.json (projet KB), n'écrase rien sans --overwrite
 ```
 
@@ -35,7 +40,7 @@ seed/seed.js                 import de tasks.json (projet KB), n'écrase rien sa
 |---|---|
 | `Project` | `key` unique ; `access` (open / members) + `members[{user, role}]` ; `currentSprint` piloté par le cycle de vie ; timezone, workingDays, estimation, defaults ; archivage |
 | `Taxonomy` | une collection pour `status, priority, area, type, techno, category, version, sprint, eventType` ; les tâches référencent la **clé** ; `meta` libre mais clés de cycle de vie réservées ; index unique `(project, kind, key)` |
-| `Task` | champs métier + `labels, parent, components, fixVersions, affectsVersions, sprintHistory, dueDate, resolvedAt, statusChangedAt, durationHours` ; `external` (source, key, id, url, importJob, importHash) avec index unique partiel ; `comments[]` (auteur ou `authorLabel`, `externalId`, `parent`, `mentions`, `reactions[{emoji, users}]`) ; `history[]` (champs suivis, textes en extrait, événements `comment`) |
+| `Task` | champs métier + `criteria[{text, done, doneAt, doneBy, createdBy, comments[{author, text, mentions}]}]` (ordre = priorité ; `acceptance` = miroir texte synchronisé par un hook `pre('save')`, utilisé par la recherche, l'export CSV et le ré-import Jira), `mergeRequests[{url, title, provider, repo, ref, state, addedBy}]`, `labels, parent, components, fixVersions, affectsVersions, sprintHistory, dueDate, resolvedAt, statusChangedAt, durationHours` ; `external` (source, key, id, url, importJob, importHash) avec index unique partiel ; `comments[]` (auteur ou `authorLabel`, `externalId`, `parent`, `mentions`, `reactions[{emoji, users}]`, `pinned*`, `resolved*`) ; `history[]` (champs suivis, textes en extrait, événements `comment`, `criteria`, `criterionComment`, `mergeRequest`, `subtask`) ; index `(project, parent)` |
 | `SavedFilter` | propriétaire, filtres assainis, vue / regroupement / tri, visibilité, `starredBy`, `defaultFor` |
 | `Dashboard` | widgets `{id, type, layout, source, config}`, `globalFilters`, `revision` (concurrence optimiste) |
 | `ImportJob` | fichiers (sha1), options, mapping, compteurs, lignes du rapport, tâches créées, valeurs avant / après des mises à jour, taxonomies créées |
@@ -67,6 +72,11 @@ seed/seed.js                 import de tasks.json (projet KB), n'écrase rien sa
   (`utils/notify.js`, destinataires par priorité, jamais l'auteur, erreurs journalisées sans faire
   échouer l'action). `Task.history` reste la source des burndowns ; `Activity` couvre en plus le
   cycle de vie des sprints / versions, les imports et les actions groupées.
+- **Hiérarchie de tâches** : `parent` (clé de la tâche parente) validé à chaque écriture d'API
+  (`assertValidParent`) ; un changement de parent écrit aussi une entrée `subtask` dans l'historique de
+  l'ancien et du nouveau parent ; la suppression d'un parent détache ses enfants.
+- **Critères d'acceptation** : routes dédiées (`criteria.routes.js`) renvoyant toujours la liste
+  complète ; l'ancien format (`acceptance` seul) est converti au premier affichage ou par la migration.
 - **Texte riche** : Markdown restreint rendu en éléments React (`RichText.tsx`), URL filtrées
   (http(s), `/api/files/`, `/projects/…`), couleurs validées ; images stockées dans `Attachment`.
 - **Analyses** : chaque partie de filtre (global, filtre enregistré, critères du widget) est compilée
@@ -86,7 +96,10 @@ styles/         themes.css (variables par thème) + global.css
 
 - Toutes les données serveur passent par react-query ; les actions à effets multiples invalident le
   périmètre projet via `useInvalidateProject`. Les mutations de tâches invalident aussi `['analytics', projectKey]`.
-- Le board n'a pas d'état local de filtres : l'URL est la source de vérité.
+- Le board n'a pas d'état local de filtres : l'URL est la source de vérité. La hauteur des lignes
+  (`board.laneHeight`) est une préférence locale ; en hauteur fixe, chaque `.col__body` défile seul.
+- Collage stylé : `utils/htmlToMarkdown.ts` (DOMParser → Markdown restreint) ; découpage d'un texte en
+  critères : `utils/acceptance.ts` (pur, testé par `npm test` dans `client/`).
 - Les droits UI viennent de `project.myRole` (`useProjectRole`) ; le serveur reste l'autorité.
 
 ## Tests et vérification

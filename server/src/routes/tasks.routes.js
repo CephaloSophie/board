@@ -23,11 +23,14 @@ const { hoursOf } = require('../utils/duration');
 const { httpError } = require('../utils/httpError');
 const { logActivity, taskActivities, projectActivity } = require('../utils/activity');
 const { resolveMentions, excerptOf, notify } = require('../utils/notify');
+const { FULL_POPULATE, USER_FIELDS, findTask, ensureCriteria } = require('../utils/taskEvents');
+const { criteriaFromInput } = require('../utils/criteria');
+const { mergeRequestFromInput, MAX_MERGE_REQUESTS } = require('../utils/mergeRequests');
+const { assertValidParent, ancestorsOf, subtaskStats, normalizeKey } = require('../utils/subtasks');
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, loadProject, blockWritesIfArchived, requireWriteAccess);
 
-const USER_FIELDS = 'username displayName color';
 const REACTIONS = ['👍', '👎', '❤️', '🎉', '😄', '😕', '🚀', '👀', '✅', '🔥'];
 // Fields a bulk action may set (planning: move to sprint / version, reassign, change status…).
 const BULK_FIELDS = ['sprint', 'version', 'assignee', 'status', 'priority', 'type', 'category', 'techno', 'area', 'dueDate', 'parent'];
@@ -45,18 +48,41 @@ const toLabels = (v) =>
 const textOf = (task, fields = MENTION_FIELDS) =>
   fields.map((f) => (Array.isArray(task[f]) ? task[f].join('\n') : task[f] || '')).join('\n');
 
-const FULL_POPULATE = [
-  { path: 'assignee', select: USER_FIELDS },
-  { path: 'reporter', select: USER_FIELDS },
-  { path: 'comments.author', select: USER_FIELDS },
-  { path: 'comments.reactions.users', select: USER_FIELDS },
-  { path: 'history.by', select: USER_FIELDS },
-];
+function mergeRequestsFromInput(input, user) {
+  const list = (Array.isArray(input) ? input : [])
+    .filter((m) => (typeof m === 'string' ? m.trim() : m?.url))
+    .map((m) => mergeRequestFromInput(m, user));
+  const unique = list.filter((m, i) => list.findIndex((o) => o.url === m.url) === i);
+  if (unique.length > MAX_MERGE_REQUESTS) throw httpError(400, 'TOO_MANY_MR', `${MAX_MERGE_REQUESTS} merge requests maximum par tâche.`);
+  return unique;
+}
 
-async function findTask(req) {
-  const task = await Task.findOne({ project: req.project._id, taskId: req.params.taskId });
-  if (!task) throw httpError(404, 'TASK_NOT_FOUND', 'Tâche introuvable.');
-  return task;
+/**
+ * A task moved under / out of a parent: the parent's own history records the
+ * sub-task link (with activity), and its people hear about new sub-tasks.
+ */
+async function recordParentLinks(req, child, fromKey, toKey) {
+  const now = new Date();
+  const links = [
+    fromKey && { key: fromKey, row: { field: 'subtask', from: child.taskId, to: null, note: `Sous-tâche retirée : ${child.taskId} · ${excerptOf(child.title, 80)}` } },
+    toKey && { key: toKey, row: { field: 'subtask', from: null, to: child.taskId, note: `Sous-tâche ajoutée : ${child.taskId} · ${excerptOf(child.title, 80)}` } },
+  ].filter(Boolean);
+  for (const { key, row } of links) {
+    const entry = { at: now, by: req.user._id, byLabel: req.user.displayName, ...row };
+    const parent = await Task.findOneAndUpdate(
+      { project: req.project._id, taskId: key },
+      { $push: { history: entry } },
+      { projection: { taskId: 1, title: 1, sprint: 1, version: 1, assignee: 1, reporter: 1 }, timestamps: false }
+    ).lean();
+    if (!parent) continue;
+    await logActivity(taskActivities(req.project, parent, [entry], req.user));
+    if (row.to) {
+      await notify(req.project, req.user, { taskId: parent.taskId, taskTitle: parent.title, excerpt: row.note }, [
+        { user: parent.assignee, type: 'subtask' },
+        { user: parent.reporter, type: 'subtask' },
+      ]);
+    }
+  }
 }
 
 function findComment(task, id) {
@@ -83,6 +109,9 @@ async function statusLabels(projectId, keys) {
 async function afterTaskChange(req, task, entries, { previousText = '', extraActivity = {} } = {}) {
   if (!entries.length) return;
   await logActivity(taskActivities(req.project, task, entries, req.user, extraActivity));
+  const parentMove = entries.find((e) => e.field === 'parent');
+  if (parentMove) await recordParentLinks(req, task, parentMove.from, parentMove.to);
+  else if (entries.some((e) => e.field === 'created') && task.parent) await recordParentLinks(req, task, null, task.parent);
 
   const recipients = [];
   const mentionEntry = entries.some((e) => MENTION_FIELDS.includes(e.field) || e.field === 'created');
@@ -140,7 +169,13 @@ router.get('/', async (req, res) => {
   }
 
   const tasks = await query;
-  res.json({ tasks, warnings });
+  // Card badges: number of (done) sub-tasks of each listed task.
+  let stats;
+  if (req.query.fields === 'summary' && tasks.length) {
+    const { doneKeys } = await statusContext(req.project._id);
+    stats = await subtaskStats(req.project._id, tasks.map((t) => t.taskId), [...doneKeys]);
+  }
+  res.json({ tasks, warnings, ...(stats ? { subtaskStats: stats } : {}) });
 });
 
 // Bulk change of planning fields: { taskIds: [], patch: { sprint?, version?, assignee?, status?… }, note? }.
@@ -155,6 +190,11 @@ router.post('/bulk', async (req, res) => {
 
   const { categoryOf } = await statusContext(req.project._id);
   const tasks = await Task.find({ project: req.project._id, taskId: { $in: taskIds } });
+  if ('parent' in patch) {
+    // Validate the whole batch first: a bulk action is all-or-nothing on the hierarchy.
+    for (const task of tasks) patch.parent = await assertValidParent(req.project._id, task.taskId, patch.parent);
+    if (!tasks.length) patch.parent = await assertValidParent(req.project._id, null, patch.parent);
+  }
   const note = String(b.note || '').trim() || 'Action groupée (planification).';
   let updated = 0;
   for (const task of tasks) {
@@ -169,9 +209,31 @@ router.post('/bulk', async (req, res) => {
 });
 
 router.get('/:taskId', async (req, res) => {
-  const task = await Task.findOne({ project: req.project._id, taskId: req.params.taskId }).populate(FULL_POPULATE);
-  if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
-  res.json({ task });
+  const task = await findTask(req);
+  await ensureCriteria(task);
+  res.json({ task: await task.populate(FULL_POPULATE) });
+});
+
+// Hierarchy around a task: direct sub-tasks (with their own counters), ancestors (breadcrumb) and roll-up.
+router.get('/:taskId/subtasks', async (req, res) => {
+  const task = await findTask(req);
+  const { categoryOf, doneKeys } = await statusContext(req.project._id);
+  const subtasks = await Task.find({ project: req.project._id, parent: task.taskId })
+    .select(SUMMARY_PROJECTION)
+    .populate('assignee', USER_FIELDS)
+    .sort({ taskId: 1 });
+  const ancestors = (await ancestorsOf(req.project._id, task.parent)).map(({ taskId, title, status, type }) => ({ taskId, title, status, type }));
+  const rollup = { total: subtasks.length, done: 0, points: 0, donePoints: 0 };
+  for (const t of subtasks) {
+    const done = categoryOf(t.status) === 'done';
+    rollup.points += t.complexity || 0;
+    if (done) {
+      rollup.done += 1;
+      rollup.donePoints += t.complexity || 0;
+    }
+  }
+  const stats = await subtaskStats(req.project._id, subtasks.map((t) => t.taskId), [...doneKeys]);
+  res.json({ subtasks, ancestors, rollup, subtaskStats: stats });
 });
 
 router.post('/', async (req, res) => {
@@ -182,6 +244,10 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'title et status sont requis.' });
   }
   const { categoryOf } = await statusContext(req.project._id);
+  // Validate everything before consuming a task number.
+  const parent = await assertValidParent(req.project._id, null, body.parent);
+  const criteria = criteriaFromInput(Array.isArray(body.criteria) ? body.criteria : body.acceptance || [], req.user);
+  const mergeRequests = mergeRequestsFromInput(body.mergeRequests, req.user);
   const seq = await nextTaskNumber(req.project.key);
   const taskId = `${req.project.key}-${String(seq).padStart(3, '0')}`;
   const now = new Date();
@@ -201,14 +267,15 @@ router.post('/', async (req, res) => {
     techno: body.techno,
     category: body.category,
     labels: toLabels(body.labels),
-    parent: body.parent || null,
+    parent,
     estimate: body.estimate,
     duration: body.duration,
     durationHours: hoursOf(body.duration),
     complexity: body.complexity || 0,
     spec: body.spec,
     instructions: body.instructions || [],
-    acceptance: body.acceptance || [],
+    criteria,
+    mergeRequests,
     assignee: body.assignee || null,
     reporter: req.user._id,
     dueDate: toDateOrNull(body.dueDate),
@@ -222,7 +289,7 @@ router.post('/', async (req, res) => {
         field: 'created',
         from: null,
         to: status,
-        note: 'Tâche créée.',
+        note: parent ? `Tâche créée (sous-tâche de ${parent}).` : 'Tâche créée.',
       },
     ],
   });
@@ -238,6 +305,13 @@ router.post('/', async (req, res) => {
 router.patch('/:taskId', async (req, res) => {
   const task = await findTask(req);
   const { note, ...patch } = req.body || {};
+  if ('parent' in patch) patch.parent = await assertValidParent(req.project._id, task.taskId, patch.parent);
+  if (Array.isArray(patch.criteria) && !('acceptance' in patch)) {
+    // Whole-list replacement from an editor: texts drive the sync (ids, done flags and comments kept on matches).
+    patch.acceptance = criteriaFromInput(patch.criteria, req.user).map((c) => c.text);
+  }
+  delete patch.criteria;
+  delete patch.mergeRequests;
   const previousText = textOf(task);
   const { categoryOf } = await statusContext(req.project._id);
   const entries = applyPatchWithHistory(task, patch, req.user, note, { categoryOf });
@@ -250,6 +324,14 @@ router.patch('/:taskId', async (req, res) => {
 router.delete('/:taskId', requireProjectRole('admin'), async (req, res) => {
   const task = await Task.findOneAndDelete({ project: req.project._id, taskId: req.params.taskId });
   if (!task) return res.status(404).json({ error: 'Tâche introuvable.' });
+  // Sub-tasks survive their parent: they are detached (with history), never deleted in cascade.
+  const children = await Task.find({ project: req.project._id, parent: task.taskId });
+  const { categoryOf } = await statusContext(req.project._id);
+  for (const child of children) {
+    const entries = applyPatchWithHistory(child, { parent: null }, req.user, `Tâche parente ${task.taskId} supprimée.`, { categoryOf });
+    await child.save();
+    await logActivity(taskActivities(req.project, child, entries, req.user));
+  }
   await logActivity(
     projectActivity(req.project, req.user, {
       scope: 'task',
@@ -260,7 +342,7 @@ router.delete('/:taskId', requireProjectRole('admin'), async (req, res) => {
       versions: [task.version],
     })
   );
-  res.json({ ok: true });
+  res.json({ ok: true, detached: children.map((c) => c.taskId) });
 });
 
 // ---------- Comments: threads (one reply level), @mentions, reactions ----------
@@ -325,29 +407,64 @@ router.post('/:taskId/comments', async (req, res) => {
   res.status(201).json({ comments: populated.comments, commentId: comment._id });
 });
 
+// { text? } edits (author or admin); { pinned? } / { resolved? } (root comments) are open to every writer.
 router.patch('/:taskId/comments/:commentId', async (req, res) => {
-  const text = String(req.body?.text || '').trim();
-  if (!text) throw httpError(400, 'COMMENT_EMPTY', 'Le commentaire est vide.');
+  const b = req.body || {};
+  const hasText = b.text !== undefined;
+  if (!hasText && b.pinned === undefined && b.resolved === undefined) {
+    throw httpError(400, 'EMPTY_PATCH', 'Aucune modification demandée.');
+  }
+  const text = hasText ? String(b.text || '').trim() : null;
+  if (hasText && !text) throw httpError(400, 'COMMENT_EMPTY', 'Le commentaire est vide.');
   const task = await findTask(req);
   const comment = findComment(task, req.params.commentId);
-  assertCommentOwner(req, comment, 'modifier');
-  if (text === comment.text) return res.json({ comments: (await task.populate(FULL_POPULATE)).comments });
+  if (hasText) assertCommentOwner(req, comment, 'modifier');
 
-  const before = await resolveMentions(req.project, comment.text);
-  const after = await resolveMentions(req.project, text);
-  const previous = comment.text;
-  comment.text = text;
-  comment.editedAt = new Date();
-  comment.mentions = after.length ? after.map((u) => u._id) : undefined;
-  const known = new Set(before.map((u) => String(u._id)));
-  await commentSideEffects(req, task, {
-    action: 'comment.edited',
-    note: 'Commentaire modifié.',
-    from: excerptOf(previous),
-    to: excerptOf(text),
-    comment,
-    recipients: after.filter((u) => !known.has(String(u._id))).map((u) => ({ user: u._id, type: 'mention' })),
-  });
+  if (b.pinned !== undefined && Boolean(b.pinned) !== Boolean(comment.pinned)) {
+    const pinned = Boolean(b.pinned);
+    comment.pinned = pinned || undefined;
+    comment.pinnedAt = pinned ? new Date() : undefined;
+    comment.pinnedBy = pinned ? req.user._id : undefined;
+    await commentSideEffects(req, task, {
+      action: pinned ? 'comment.pinned' : 'comment.unpinned',
+      note: pinned ? 'Commentaire épinglé.' : 'Commentaire désépinglé.',
+      to: excerptOf(comment.text),
+      comment,
+    });
+  }
+
+  if (b.resolved !== undefined && Boolean(b.resolved) !== Boolean(comment.resolved)) {
+    if (comment.parent) throw httpError(400, 'COMMENT_NOT_ROOT', 'Seul le commentaire qui ouvre la discussion peut être résolu.');
+    const resolved = Boolean(b.resolved);
+    comment.resolved = resolved || undefined;
+    comment.resolvedAt = resolved ? new Date() : undefined;
+    comment.resolvedBy = resolved ? req.user._id : undefined;
+    await commentSideEffects(req, task, {
+      action: resolved ? 'comment.resolved' : 'comment.reopened',
+      note: resolved ? 'Discussion résolue.' : 'Discussion rouverte.',
+      to: excerptOf(comment.text),
+      comment,
+      recipients: resolved && comment.author ? [{ user: comment.author, type: 'reply' }] : [],
+    });
+  }
+
+  if (hasText && text !== comment.text) {
+    const before = await resolveMentions(req.project, comment.text);
+    const after = await resolveMentions(req.project, text);
+    const previous = comment.text;
+    comment.text = text;
+    comment.editedAt = new Date();
+    comment.mentions = after.length ? after.map((u) => u._id) : undefined;
+    const known = new Set(before.map((u) => String(u._id)));
+    await commentSideEffects(req, task, {
+      action: 'comment.edited',
+      note: 'Commentaire modifié.',
+      from: excerptOf(previous),
+      to: excerptOf(text),
+      comment,
+      recipients: after.filter((u) => !known.has(String(u._id))).map((u) => ({ user: u._id, type: 'mention' })),
+    });
+  }
   res.json({ comments: (await task.populate(FULL_POPULATE)).comments });
 });
 

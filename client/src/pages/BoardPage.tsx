@@ -7,7 +7,7 @@ import { useTasks, useUpdateTask, type TaskPatch } from '../api/tasks';
 import { useAssignableUsers } from '../api/members';
 import { useSavedFilters } from '../api/filters';
 import Filters from '../components/Board/Filters';
-import GroupedBoard, { type DropTarget } from '../components/Board/GroupedBoard';
+import GroupedBoard, { LANE_HEIGHT_MAX, LANE_HEIGHT_MIN, type DropTarget } from '../components/Board/GroupedBoard';
 import JiraBoard from '../components/Board/JiraBoard';
 import ListBoard from '../components/Board/ListBoard';
 import SavedFiltersBar from '../components/Board/SavedFiltersBar';
@@ -56,6 +56,35 @@ function writePref(key: string, value: boolean) {
 
 const readShowFilters = () => readPref(SHOW_FILTERS_KEY, true);
 
+// Height of every board lane (sprint, version… block): constant, each status column scrolls on its own.
+const LANE_HEIGHT_KEY = 'board.laneHeight';
+const LANE_PRESETS: { value: string; label: string }[] = [
+  { value: '320', label: 'Compacte' },
+  { value: '460', label: 'Normale' },
+  { value: '640', label: 'Grande' },
+  { value: '860', label: 'Très grande' },
+  { value: 'auto', label: 'Auto' },
+];
+
+function readLaneHeight(): number | null {
+  try {
+    const v = localStorage.getItem(LANE_HEIGHT_KEY);
+    if (v === 'auto') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= LANE_HEIGHT_MIN && n <= LANE_HEIGHT_MAX ? n : 460;
+  } catch {
+    return 460;
+  }
+}
+
+function writeLaneHeight(v: number | null) {
+  try {
+    localStorage.setItem(LANE_HEIGHT_KEY, v === null ? 'auto' : String(v));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 export default function BoardPage() {
   const { projectKey } = useParams();
   const { data: project } = useProject(projectKey);
@@ -82,6 +111,7 @@ export default function BoardPage() {
   // (sprints, versions, members…) can be shown to drop cards into them.
   const [showEmptyColumns, setShowEmptyColumns] = useState(() => readPref(EMPTY_COLUMNS_KEY, true));
   const [showEmptyGroups, setShowEmptyGroups] = useState(() => readPref(EMPTY_GROUPS_KEY, true));
+  const [laneHeight, setLaneHeight] = useState<number | null>(readLaneHeight);
   const { data: assignable } = useAssignableUsers(projectKey);
   const updateTask = useUpdateTask(projectKey || '');
 
@@ -111,6 +141,7 @@ export default function BoardPage() {
   useEffect(() => writePref(SHOW_FILTERS_KEY, showFilters), [showFilters]);
   useEffect(() => writePref(EMPTY_COLUMNS_KEY, showEmptyColumns), [showEmptyColumns]);
   useEffect(() => writePref(EMPTY_GROUPS_KEY, showEmptyGroups), [showEmptyGroups]);
+  useEffect(() => writeLaneHeight(laneHeight), [laneHeight]);
 
   if (!projectKey) return null;
 
@@ -209,6 +240,20 @@ export default function BoardPage() {
                 <input type="checkbox" checked={showEmptyGroups} onChange={(e) => setShowEmptyGroups(e.target.checked)} /> Groupes vides
               </label>
             )}
+            <label title="Hauteur constante de chaque ligne (sprint, version…) : chaque statut défile séparément. Glissez le bord inférieur d'une ligne pour l'ajuster.">
+              Hauteur
+              <select
+                value={laneHeight === null ? 'auto' : LANE_PRESETS.some((p) => p.value === String(laneHeight)) ? String(laneHeight) : 'custom'}
+                onChange={(e) => e.target.value !== 'custom' && setLaneHeight(e.target.value === 'auto' ? null : Number(e.target.value))}
+              >
+                {LANE_PRESETS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+                {laneHeight !== null && !LANE_PRESETS.some((p) => p.value === String(laneHeight)) && <option value="custom">Personnalisée ({laneHeight}px)</option>}
+              </select>
+            </label>
           </div>
         )}
         <div className="view-switcher">
@@ -256,6 +301,8 @@ export default function BoardPage() {
           showEmptyColumns={showEmptyColumns}
           showEmptyGroups={showEmptyGroups}
           users={assignable}
+          laneHeight={laneHeight}
+          onLaneHeightChange={setLaneHeight}
         />
       )}
       {!isLoading && tasks && board.view === 'jira' && (
@@ -269,6 +316,8 @@ export default function BoardPage() {
           showEmptyColumns={showEmptyColumns}
           showEmptyGroups={showEmptyGroups}
           users={assignable}
+          laneHeight={laneHeight}
+          onLaneHeightChange={setLaneHeight}
         />
       )}
       {!isLoading && tasks && board.view === 'list' && (

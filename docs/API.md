@@ -48,15 +48,44 @@ Rôles projet : `viewer` < `member` < `admin` (super admin et responsable = admi
 
 | Méthode | Route | Droits | Description |
 |---|---|---|---|
-| GET | `/projects/:key/tasks` | lecture | filtres ci-dessous ; `filterId` ; `taskIds=KB-1,KB-2` ; `fields=summary` ; `sort=champ:asc\|desc` ; `limit`/`skip` (+ `X-Total-Count`) ; réponse `{ tasks, warnings }` |
-| GET | `/projects/:key/tasks/:taskId` | lecture | tâche complète (historique, commentaires) |
-| POST | `/projects/:key/tasks` | member | statut / type / priorité par défaut du projet si absents |
-| PATCH | `/projects/:key/tasks/:taskId` | member | champs + `note` ; historique automatique |
-| DELETE | `/projects/:key/tasks/:taskId` | admin | |
+| GET | `/projects/:key/tasks` | lecture | filtres ci-dessous ; `filterId` ; `taskIds=KB-1,KB-2` ; `fields=summary` ; `sort=champ:asc\|desc` ; `limit`/`skip` (+ `X-Total-Count`) ; réponse `{ tasks, warnings }` ; en `fields=summary` : `subtaskStats { "KB-1": { total, done, points, donePoints } }` et `criteria[]` réduits à `{ _id, done }` |
+| GET | `/projects/:key/tasks/:taskId` | lecture | tâche complète (historique, commentaires, critères, merge requests) ; convertit une seule fois l'ancien `acceptance` en `criteria` |
+| GET | `/projects/:key/tasks/:taskId/subtasks` | lecture | `{ subtasks, ancestors (du plus proche au plus lointain), rollup { total, done, points, donePoints }, subtaskStats }` |
+| POST | `/projects/:key/tasks` | member | statut / type / priorité par défaut du projet si absents ; `criteria: [texte \| { text, done }]` (ou ancien `acceptance`), `mergeRequests: [url \| { url, title?, state? }]`, `parent` validé (`PARENT_NOT_FOUND`) ; une entrée « Sous-tâche ajoutée » est écrite dans l'historique du parent |
+| PATCH | `/projects/:key/tasks/:taskId` | member | champs + `note` ; historique automatique ; `parent` validé (`PARENT_SELF` 400, `PARENT_NOT_FOUND` 400, `PARENT_CYCLE` 409, `PARENT_TOO_DEEP` 409) ; `criteria: [texte]` remplace la liste en conservant les critères identiques (coche, commentaires) |
+| DELETE | `/projects/:key/tasks/:taskId` | admin | les sous-tâches sont détachées (historisé), jamais supprimées → `{ ok, detached }` |
 | POST | `/projects/:key/tasks/bulk` | member | `{ taskIds (≤ 500), patch: { sprint?, version?, assignee?, status?, priority?, type?, category?, techno?, area?, dueDate?, parent? }, note? }` → `{ updated, unchanged, notFound }` (`NO_TASKS`, `EMPTY_PATCH`, `TOO_MANY_TASKS`) |
 | POST | `/projects/:key/tasks/:taskId/comments` | member | `{ text, parent? }` (réponse rattachée au commentaire racine) → `{ comments, commentId }` |
-| PATCH / DELETE | `/projects/:key/tasks/:taskId/comments/:id` | auteur ou admin (`NOT_COMMENT_AUTHOR`) | modifier `{ text }` ; supprimer (avec ses réponses) |
+| PATCH | `/projects/:key/tasks/:taskId/comments/:id` | member ; `text` : auteur ou admin (`NOT_COMMENT_AUTHOR`) | `{ text?, pinned?, resolved? }` ; `resolved` uniquement sur un commentaire racine (`COMMENT_NOT_ROOT`) ; rien à modifier → `EMPTY_PATCH` ; chaque action est historisée |
+| DELETE | `/projects/:key/tasks/:taskId/comments/:id` | auteur ou admin | supprimer (avec ses réponses) |
 | POST | `/projects/:key/tasks/:taskId/comments/:id/reactions` | member | `{ emoji }` bascule la réaction de l'utilisateur (`REACTION_INVALID`) → `{ comments, added }` |
+
+### Critères d'acceptation (`/projects/:key/tasks/:taskId/criteria`)
+
+Réponse de chaque route : `{ criteria, progress: { total, done } }` (liste complète, `doneBy` et auteurs peuplés).
+Chaque écriture ajoute une entrée d'historique (`criteria` ou `criterionComment`) et une ligne au journal.
+
+| Méthode | Route | Droits | Description |
+|---|---|---|---|
+| GET | `/` | lecture | liste ordonnée (ordre = priorité) |
+| POST | `/` | member | `{ text }` ou `{ items: [texte \| { text, done }], position?: "start" \| "end" }` → `+ createdIds` (`CRITERION_EMPTY`, `CRITERION_TOO_LONG` > 5000 car., `TOO_MANY_CRITERIA` > 200) |
+| PUT | `/order` | member | `{ ids }` : nouvel ordre ; ids inconnus ignorés, critères absents conservés à la fin |
+| PATCH | `/:criterionId` | member | `{ text?, done? }` ; quand le dernier critère est validé, rapporteur et assigné reçoivent une notification `criteria` (`CRITERION_NOT_FOUND`) |
+| DELETE | `/:criterionId` | member | supprime le critère et sa discussion |
+| POST | `/:criterionId/comments` | member | `{ text }` (Markdown, images, liens, `@mentions`) → `+ commentId` ; notifie mentions, participants, assigné, rapporteur |
+| PATCH / DELETE | `/:criterionId/comments/:commentId` | auteur ou admin | modifier `{ text }` / supprimer |
+
+### Merge requests (`/projects/:key/tasks/:taskId/merge-requests`)
+
+Réponse : `{ mergeRequests }`. Forge, dépôt et numéro déduits de l'URL (GitLab `!12`, GitHub / Bitbucket /
+Gitea `#7`, Azure DevOps `!99`) ; `state` : `draft | open | merged | closed`.
+
+| Méthode | Route | Droits | Description |
+|---|---|---|---|
+| GET | `/` | lecture | |
+| POST | `/` | member | `{ url, title?, state? }` → `+ mergeRequestId` (`MR_URL_REQUIRED`, `MR_URL_INVALID` : http(s) uniquement, `MR_DUPLICATE` 409, `TOO_MANY_MR` > 30) ; notifie rapporteur et assigné (`merge_request`) |
+| PATCH | `/:mrId` | member | `{ url?, title?, state? }` (`MR_STATE_INVALID`) ; le passage à `merged` notifie |
+| DELETE | `/:mrId` | member | |
 
 Texte des descriptions et commentaires : Markdown restreint (voir `client/src/components/common/RichText.tsx`),
 `@username` notifie les membres ayant accès au projet. Chaque changement (champs suivis, description,

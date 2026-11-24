@@ -13,14 +13,17 @@ src/
   hooks/useProjectPeople.ts membres indexés (mentionLabel, userName)
   pages/                   BoardPage, PlanningPage, ActivityPage (journal), DashboardPage, EventsPage, TaskPage, ProjectSettingsPage, AdminPage, ProjectsPage, LoginPage
   components/Board/        GroupedBoard (moteur kanban partagé, dépôt entre groupes), JiraBoard, ListBoard, Filters, SavedFiltersBar, GroupStats
-  components/common/       RichText (Markdown sûr), RichTextEditor (barre d'outils, images, @mentions), Avatar, LabelsInput
+  components/common/       RichText (Markdown sûr), RichTextEditor (barre d'outils, images, @mentions, collage stylé), Avatar, LabelsInput, TaskPicker
+  components/Task/         TaskDetail, TaskModal (navigation parent / sous-tâche), NewTaskModal (modèles, brouillon), AcceptanceEditor
+                           (critères : tri, coche, collage découpé), TaskCriteria (+ discussions), MergeRequestList, SubtaskPanel, CommentList, HistoryList
   components/Activity/     ActivityFeed (journal par jour, pagination)
   components/Layout/       Header, NotificationBell
   components/Dashboard/    Widgets (rendu + sourceBody), WidgetConfigModal, layout (collisions/compactage), registry
   components/Charts/       VerticalBars, HorizontalBars, Donut, LineChart, GroupedBars (SVG maison)
   components/ProjectSettings/  GeneralTab, SprintsTab, VersionsPanel, MembersTab, WorkflowTab, ImportExportTab, DangerZoneTab, ReplaceValueDialog
   components/Admin/        TaxonomyAdmin, UsersAdmin
-  utils/                   boardUrlState, status (catégories, SPRINT_STATUS_META, rôles), dates, versions, format, useDebounced
+  utils/                   boardUrlState, status (catégories, SPRINT_STATUS_META, rôles), dates, versions, format, useDebounced,
+                           acceptance (découpage d'un texte en critères, testé), htmlToMarkdown (collage stylé), mergeRequests, historyFormat
   styles/                  themes.css (variables) + global.css (tout le style)
 ```
 
@@ -41,5 +44,5 @@ src/
 
 ## Vérification
 
-`npx tsc -b` propre, `npm run build` avant livraison. Pour valider un parcours d'interface, lancer
+`npx tsc -b` propre, `npm test` (tests purs `src/**/*.test.ts`, exclus de tsc), `npm run build` avant livraison. Pour valider un parcours d'interface, lancer
 une API de test séparée et Vite avec `VITE_API_PROXY_TARGET` (jamais contre la base réelle).
