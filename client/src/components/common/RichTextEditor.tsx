@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type Ke
 import { uploadImage } from '../../api/attachments';
 import { errorMessage } from '../../api/client';
 import { useProjectPeople } from '../../hooks/useProjectPeople';
+import { markdownFromClipboard } from '../../utils/htmlToMarkdown';
 import Avatar from './Avatar';
 import RichText from './RichText';
 
@@ -21,6 +22,8 @@ const HELP = [
   '# Titre   - liste   1. liste   - [ ] case à cocher   > citation',
   '`code`   ```bloc de code```   [lien](https://…)   ![image](url)',
   '@utilisateur pour mentionner · KB-12 pour lier une tâche',
+  'Coller depuis Word / Google Docs / une page web conserve gras, listes, liens et titres',
+  'Ctrl+Maj+V colle le texte brut',
 ].join('\n');
 
 function Tool({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
@@ -41,6 +44,9 @@ export default function RichTextEditor({
   autoFocus,
   onSubmit,
   disabled,
+  showHint = true,
+  onPasteIntercept,
+  onCancel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -51,6 +57,11 @@ export default function RichTextEditor({
   autoFocus?: boolean;
   onSubmit?: () => void;
   disabled?: boolean;
+  showHint?: boolean;
+  // Called with the pasted content (already converted to Markdown when styled); return true to take it over.
+  onPasteIntercept?: (text: string) => boolean;
+  // Escape (outside the @mention list).
+  onCancel?: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -182,6 +193,11 @@ export default function RichTextEditor({
         return;
       }
     }
+    if (e.key === 'Escape' && onCancel) {
+      e.preventDefault();
+      onCancel();
+      return;
+    }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     if (e.key === 'Enter' && onSubmit) {
       e.preventDefault();
@@ -201,6 +217,20 @@ export default function RichTextEditor({
     if (files.some((f) => f.type.startsWith('image/'))) {
       e.preventDefault();
       upload(files);
+      return;
+    }
+    // Styled text (Word, Google Docs, web pages): keep its formatting as Markdown.
+    const plain = e.clipboardData.getData('text/plain');
+    const markdown = markdownFromClipboard(e.clipboardData.getData('text/html'), plain);
+    if (onPasteIntercept?.(markdown ?? plain)) {
+      e.preventDefault();
+      return;
+    }
+    if (markdown) {
+      e.preventDefault();
+      const { v, s } = selection();
+      const lead = s > 0 && v[s - 1] !== '\n' && /^(#|- |\d+\. |> |\||```)/.test(markdown) ? '\n' : '';
+      insert(lead + markdown);
     }
   }
 
@@ -343,9 +373,9 @@ export default function RichTextEditor({
       <div className="rte__foot">
         {uploading > 0 && <span className="rte__uploading">Envoi de {uploading} image(s)…</span>}
         {error && <span className="form-error">{error}</span>}
-        <span className="hint">
-          Mise en forme, images (coller / glisser), @mentions{onSubmit ? ' · Ctrl+Entrée pour envoyer' : ''}
-        </span>
+        {showHint && <span className="hint">
+          Mise en forme, collage stylé, images (coller / glisser), @mentions{onSubmit ? ' · Ctrl+Entrée pour envoyer' : ''}
+        </span>}
       </div>
       <input
         ref={fileRef}

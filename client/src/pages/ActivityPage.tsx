@@ -25,7 +25,10 @@ const FIELDS = [
   { value: 'complexity', label: 'Points' },
   { value: 'estimate,duration', label: 'Estimation / durée' },
   { value: 'priority', label: 'Priorité' },
-  { value: 'title,description,instructions,acceptance', label: 'Contenu' },
+  { value: 'title,description,instructions', label: 'Contenu' },
+  { value: 'acceptance,criteria,criterionComment', label: "Critères d'acceptation (recette)" },
+  { value: 'parent,subtask', label: 'Sous-tâches / hiérarchie' },
+  { value: 'mergeRequest', label: 'Merge requests' },
   { value: 'comment', label: 'Commentaires' },
   { value: 'dueDate', label: 'Échéance' },
 ];

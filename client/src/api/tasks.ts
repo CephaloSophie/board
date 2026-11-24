@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { get, post, patch, del } from './client';
+import { get, post, patch, put, del } from './client';
 import { useInvalidateProject } from './invalidate';
-import type { Comment, Task, TaskFilters } from '../types';
+import type { Comment, CriteriaProgress, Criterion, MergeRequest, MergeRequestState, SubtaskStats, SubtaskTree, Task, TaskFilters } from '../types';
 
 function buildQuery(filters: Partial<TaskFilters>): string {
   const params = new URLSearchParams();
@@ -26,9 +26,33 @@ export function useTasks(projectKey: string | undefined, filters: Partial<TaskFi
     queryFn: () => {
       const qs = buildQuery(filters);
       const suffix = opts.summary ? `${qs ? `${qs}&` : '?'}fields=summary` : qs;
-      return get<{ tasks: Task[] }>(`/projects/${projectKey}/tasks${suffix}`).then((r) => r.tasks);
+      return get<{ tasks: Task[]; subtaskStats?: Record<string, SubtaskStats> }>(`/projects/${projectKey}/tasks${suffix}`).then((r) =>
+        r.subtaskStats ? r.tasks.map((t) => (r.subtaskStats![t.taskId] ? { ...t, subtaskStats: r.subtaskStats![t.taskId] } : t)) : r.tasks
+      );
     },
     enabled: !!projectKey,
+  });
+}
+
+// Lightweight search used by task pickers (parent, sub-task attachment).
+export function useTaskSearch(projectKey: string | undefined, search: string, enabled = true) {
+  return useQuery({
+    queryKey: ['task-search', projectKey, search],
+    queryFn: () => {
+      const params = new URLSearchParams({ fields: 'summary', limit: '20', sort: 'updatedAt:desc' });
+      if (search.trim()) params.set('search', search.trim());
+      return get<{ tasks: Task[] }>(`/projects/${projectKey}/tasks?${params}`).then((r) => r.tasks);
+    },
+    enabled: !!projectKey && enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useSubtasks(projectKey: string | undefined, taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['subtasks', projectKey, taskId],
+    queryFn: () => get<SubtaskTree>(`/projects/${projectKey}/tasks/${taskId}/subtasks`),
+    enabled: !!projectKey && !!taskId,
   });
 }
 
@@ -43,13 +67,22 @@ export function useTask(projectKey: string | undefined, taskId: string | undefin
 export function useCreateTask(projectKey: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Task>) => post<{ task: Task }>(`/projects/${projectKey}/tasks`, data),
+    mutationFn: (data: TaskCreate) => post<{ task: Task }>(`/projects/${projectKey}/tasks`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', projectKey] });
+      qc.invalidateQueries({ queryKey: ['subtasks', projectKey] });
+      qc.invalidateQueries({ queryKey: ['task', projectKey] });
       qc.invalidateQueries({ queryKey: ['activity', projectKey] });
+      qc.invalidateQueries({ queryKey: ['project-stats', projectKey] });
     },
   });
 }
+
+export type TaskCreate = Omit<Partial<Task>, 'assignee' | 'criteria' | 'mergeRequests'> & {
+  assignee?: string | null;
+  criteria?: { text: string; done?: boolean }[];
+  mergeRequests?: { url: string; title?: string; state?: MergeRequestState }[];
+};
 
 export type TaskPatch = Omit<Partial<Task>, 'assignee'> & { assignee?: string | null; note?: string };
 
@@ -81,6 +114,7 @@ export function useUpdateTask(projectKey: string) {
     onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: ['tasks', projectKey] });
       qc.invalidateQueries({ queryKey: ['task', projectKey, vars.taskId] });
+      qc.invalidateQueries({ queryKey: ['subtasks', projectKey] });
       qc.invalidateQueries({ queryKey: ['project-stats', projectKey] });
       qc.invalidateQueries({ queryKey: ['analytics', projectKey] });
       qc.invalidateQueries({ queryKey: ['activity', projectKey] });
@@ -107,6 +141,7 @@ export function useDeleteTask(projectKey: string) {
     mutationFn: (taskId: string) => del<{ ok: true }>(`/projects/${projectKey}/tasks/${taskId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', projectKey] });
+      qc.invalidateQueries({ queryKey: ['subtasks', projectKey] });
       qc.invalidateQueries({ queryKey: ['activity', projectKey] });
     },
   });
@@ -134,9 +169,11 @@ export function useAddComment(projectKey: string) {
   );
 }
 
+export type CommentPatch = { text?: string; pinned?: boolean; resolved?: boolean };
+
 export function useEditComment(projectKey: string) {
-  return useCommentMutation(projectKey, ({ taskId, commentId, text }: { taskId: string; commentId: string; text: string }) =>
-    patch<{ comments: Comment[] }>(`/projects/${projectKey}/tasks/${taskId}/comments/${commentId}`, { text })
+  return useCommentMutation(projectKey, ({ taskId, commentId, ...data }: { taskId: string; commentId: string } & CommentPatch) =>
+    patch<{ comments: Comment[] }>(`/projects/${projectKey}/tasks/${taskId}/comments/${commentId}`, data)
   );
 }
 
@@ -153,3 +190,98 @@ export function useDeleteComment(projectKey: string) {
 }
 
 export const REACTIONS = ['👍', '👎', '❤️', '🎉', '😄', '😕', '🚀', '👀', '✅', '🔥'];
+
+// ---------- Acceptance criteria ----------
+// Every criteria mutation answers with the whole populated list: write it into the task cache.
+
+type CriteriaResponse = { criteria: Criterion[]; progress: CriteriaProgress; createdIds?: string[]; commentId?: string };
+
+function useCriteriaMutation<V extends { taskId: string }>(projectKey: string, fn: (v: V) => Promise<CriteriaResponse>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (data, vars) => {
+      qc.setQueryData<Task>(['task', projectKey, vars.taskId], (task) => (task ? { ...task, criteria: data.criteria, acceptance: data.criteria.map((c) => c.text) } : task));
+      qc.setQueriesData<Task[]>({ queryKey: ['tasks', projectKey] }, (rows) =>
+        rows?.map((t) => (t.taskId === vars.taskId ? { ...t, criteria: data.criteria.map((c) => ({ ...c, comments: [] })) } : t))
+      );
+      qc.invalidateQueries({ queryKey: ['task', projectKey, vars.taskId] });
+      qc.invalidateQueries({ queryKey: ['activity', projectKey] });
+    },
+  });
+}
+
+const criteriaPath = (projectKey: string, taskId: string) => `/projects/${projectKey}/tasks/${taskId}/criteria`;
+
+export function useCriteriaActions(projectKey: string) {
+  const qc = useQueryClient();
+  const add = useCriteriaMutation(projectKey, ({ taskId, items, position }: { taskId: string; items: { text: string; done?: boolean }[]; position?: 'start' | 'end' }) =>
+    post<CriteriaResponse>(criteriaPath(projectKey, taskId), { items, position })
+  );
+  const update = useCriteriaMutation(projectKey, ({ taskId, criterionId, ...data }: { taskId: string; criterionId: string; text?: string; done?: boolean }) =>
+    patch<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/${criterionId}`, data)
+  );
+  const remove = useCriteriaMutation(projectKey, ({ taskId, criterionId }: { taskId: string; criterionId: string }) =>
+    del<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/${criterionId}`)
+  );
+  const reorder = useMutation({
+    mutationFn: ({ taskId, ids }: { taskId: string; ids: string[] }) => put<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/order`, { ids }),
+    // Optimistic: the dropped order shows at once, the server answer confirms it.
+    onMutate: async ({ taskId, ids }) => {
+      await qc.cancelQueries({ queryKey: ['task', projectKey, taskId] });
+      const previous = qc.getQueryData<Task>(['task', projectKey, taskId]);
+      if (previous?.criteria) {
+        const byId = new Map(previous.criteria.map((c) => [c._id, c]));
+        const ordered = ids.map((id) => byId.get(id)).filter((c): c is Criterion => !!c);
+        qc.setQueryData<Task>(['task', projectKey, taskId], { ...previous, criteria: [...ordered, ...previous.criteria.filter((c) => !ids.includes(c._id))] });
+      }
+      return { previous };
+    },
+    onError: (_e, vars, ctx) => ctx?.previous && qc.setQueryData(['task', projectKey, vars.taskId], ctx.previous),
+    onSuccess: (data, vars) => {
+      qc.setQueryData<Task>(['task', projectKey, vars.taskId], (task) => (task ? { ...task, criteria: data.criteria } : task));
+      qc.invalidateQueries({ queryKey: ['activity', projectKey] });
+    },
+  });
+  const addComment = useCriteriaMutation(projectKey, ({ taskId, criterionId, text }: { taskId: string; criterionId: string; text: string }) =>
+    post<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/${criterionId}/comments`, { text })
+  );
+  const editComment = useCriteriaMutation(projectKey, ({ taskId, criterionId, commentId, text }: { taskId: string; criterionId: string; commentId: string; text: string }) =>
+    patch<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/${criterionId}/comments/${commentId}`, { text })
+  );
+  const removeComment = useCriteriaMutation(projectKey, ({ taskId, criterionId, commentId }: { taskId: string; criterionId: string; commentId: string }) =>
+    del<CriteriaResponse>(`${criteriaPath(projectKey, taskId)}/${criterionId}/comments/${commentId}`)
+  );
+  return { add, update, remove, reorder, addComment, editComment, removeComment };
+}
+
+// ---------- Merge requests ----------
+
+type MergeRequestsResponse = { mergeRequests: MergeRequest[]; mergeRequestId?: string };
+
+export function useMergeRequestActions(projectKey: string) {
+  const qc = useQueryClient();
+  const path = (taskId: string) => `/projects/${projectKey}/tasks/${taskId}/merge-requests`;
+  const onSuccess = (data: MergeRequestsResponse, vars: { taskId: string }) => {
+    qc.setQueryData<Task>(['task', projectKey, vars.taskId], (task) => (task ? { ...task, mergeRequests: data.mergeRequests } : task));
+    qc.setQueriesData<Task[]>({ queryKey: ['tasks', projectKey] }, (rows) =>
+      rows?.map((t) => (t.taskId === vars.taskId ? { ...t, mergeRequests: data.mergeRequests } : t))
+    );
+    qc.invalidateQueries({ queryKey: ['task', projectKey, vars.taskId] });
+    qc.invalidateQueries({ queryKey: ['activity', projectKey] });
+  };
+  const add = useMutation({
+    mutationFn: ({ taskId, ...data }: { taskId: string; url: string; title?: string; state?: MergeRequestState }) => post<MergeRequestsResponse>(path(taskId), data),
+    onSuccess,
+  });
+  const update = useMutation({
+    mutationFn: ({ taskId, mrId, ...data }: { taskId: string; mrId: string; url?: string; title?: string; state?: MergeRequestState }) =>
+      patch<MergeRequestsResponse>(`${path(taskId)}/${mrId}`, data),
+    onSuccess,
+  });
+  const remove = useMutation({
+    mutationFn: ({ taskId, mrId }: { taskId: string; mrId: string }) => del<MergeRequestsResponse>(`${path(taskId)}/${mrId}`),
+    onSuccess,
+  });
+  return { add, update, remove };
+}

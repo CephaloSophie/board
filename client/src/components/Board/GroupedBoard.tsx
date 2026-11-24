@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   DndContext,
   type DragEndEvent,
@@ -35,7 +35,13 @@ export interface BoardProps {
   showEmptyGroups?: boolean;
   users?: { id: string; displayName: string; color?: string }[];
   variant?: 'grouped' | 'jira';
+  // Constant height (px) of every group's columns; each status column scrolls on its own. null = grow with content.
+  laneHeight?: number | null;
+  onLaneHeightChange?: (height: number) => void;
 }
+
+export const LANE_HEIGHT_MIN = 200;
+export const LANE_HEIGHT_MAX = 1400;
 
 // Namespaced droppable id so the same status column repeated across groups
 // stays uniquely identifiable to dnd-kit ("<groupKey>::<statusKey>").
@@ -64,17 +70,20 @@ function StatusColumn({
     <div ref={setNodeRef} className={`col${isOver ? ' drag-over' : ''}${tasks.length ? '' : ' col--empty'}`}>
       <div className="col__head">
         <span className="col__dot" style={{ background: status.color }} />
-        <span className="col__name" style={{ color: status.color }}>
+        <span className="col__name" style={{ color: status.color }} title={status.label}>
           {status.label}
         </span>
         <span className="col__count">
           {tasks.length} · {points}pts
         </span>
       </div>
-      {tasks.map((t) => (
-        <TaskCard key={t.taskId} task={t} taxonomies={taxonomies} onOpen={onOpen} />
-      ))}
-      {tasks.length === 0 && <div className="empty">Déposer ici</div>}
+      {/* Scrolls independently of the other statuses when the lane height is fixed. */}
+      <div className="col__body" tabIndex={-1}>
+        {tasks.map((t) => (
+          <TaskCard key={t.taskId} task={t} taxonomies={taxonomies} onOpen={onOpen} />
+        ))}
+        {tasks.length === 0 && <div className="empty">Déposer ici</div>}
+      </div>
     </div>
   );
 }
@@ -105,7 +114,34 @@ export default function GroupedBoard({
   showEmptyGroups = false,
   users,
   variant = 'grouped',
+  laneHeight = null,
+  onLaneHeightChange,
 }: BoardProps) {
+  // Live height while the resize handle is dragged (committed on release).
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const height = dragHeight ?? laneHeight;
+
+  function startResize(e: ReactPointerEvent<HTMLDivElement>, current: number) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const clamp = (v: number) => Math.round(Math.min(LANE_HEIGHT_MAX, Math.max(LANE_HEIGHT_MIN, v)));
+    let last = current;
+    const move = (ev: PointerEvent) => {
+      last = clamp(current + ev.clientY - startY);
+      setDragHeight(last);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('resizing-lanes');
+      setDragHeight(null);
+      onLaneHeightChange?.(last);
+    };
+    document.body.classList.add('resizing-lanes');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
   // Non-empty groups start expanded, empty ones collapsed to a drop strip.
@@ -164,7 +200,8 @@ export default function GroupedBoard({
     const collapsed = groupBy !== 'none' && (empty ? !toggled.has(group.key) : toggled.has(group.key));
     const cols = columnsOf(group);
     const sprintStatus = groupBy === 'sprint' && group.sublabel ? SPRINT_STATUS_META[group.sublabel as SprintStatus] : undefined;
-    const kanban = variant === 'jira' || showEmptyColumns;
+    // A fixed lane height needs one row of columns (wrapping rows would hide cards).
+    const kanban = variant === 'jira' || showEmptyColumns || height !== null;
     const byStatus = new Map<string, Task[]>();
     for (const t of group.tasks) {
       if (!byStatus.has(t.status)) byStatus.set(t.status, []);
@@ -197,10 +234,13 @@ export default function GroupedBoard({
         {collapsed ? (
           <GroupDropStrip dropId={dropIdOf(group.key)} label={`${empty ? 'Aucune tâche · ' : ''}déposer une carte ici pour la déplacer vers « ${group.label} »`} />
         ) : (
-          <div className="columns-scroll">
+          <div className={`columns-scroll${height !== null ? ' fixed' : ''}`}>
             <div
-              className={`columns${kanban ? ' kanban' : ''}`}
-              style={kanban ? { gridTemplateColumns: `repeat(${Math.max(cols.length, 1)}, minmax(220px, 1fr))` } : undefined}
+              className={`columns${kanban ? ' kanban' : ''}${height !== null ? ' fixed' : ''}`}
+              style={{
+                ...(kanban ? { gridTemplateColumns: `repeat(${Math.max(cols.length, 1)}, minmax(220px, 1fr))` } : {}),
+                ...(height !== null ? { height } : {}),
+              }}
             >
               {cols.map((s) => (
                 <StatusColumn
@@ -213,6 +253,17 @@ export default function GroupedBoard({
                 />
               ))}
             </div>
+            {height !== null && onLaneHeightChange && (
+              <div
+                className="lane-resize"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Hauteur des lignes du board"
+                title="Glisser pour changer la hauteur de toutes les lignes"
+                onPointerDown={(e) => startResize(e, height)}
+                onDoubleClick={() => onLaneHeightChange(460)}
+              />
+            )}
           </div>
         )}
       </section>
@@ -265,6 +316,7 @@ function sidebarTitle(groupBy: GroupByKey): string {
     case 'priority': return 'Priorités';
     case 'status': return 'Statuts';
     case 'assignee': return 'Assignés';
+    case 'parent': return 'Tâches parentes';
     default: return 'Groupes';
   }
 }

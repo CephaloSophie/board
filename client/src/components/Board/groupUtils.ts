@@ -12,7 +12,8 @@ export type GroupByKey =
   | 'type'
   | 'priority'
   | 'status'
-  | 'assignee';
+  | 'assignee'
+  | 'parent';
 
 export const GROUP_OPTIONS: { value: GroupByKey; label: string }[] = [
   { value: 'sprint', label: 'Sprint' },
@@ -24,6 +25,7 @@ export const GROUP_OPTIONS: { value: GroupByKey; label: string }[] = [
   { value: 'priority', label: 'Priorité' },
   { value: 'status', label: 'Statut' },
   { value: 'assignee', label: 'Assigné' },
+  { value: 'parent', label: 'Tâche parente (module / package)' },
   { value: 'none', label: 'Aucun regroupement' },
 ];
 
@@ -52,6 +54,7 @@ export interface GroupOptions {
 const UNGROUPED_LABELS: Partial<Record<GroupByKey, string>> = {
   sprint: 'Backlog (sans sprint)',
   version: 'Sans version',
+  parent: 'Sans tâche parente',
 };
 
 export function groupTasks(
@@ -91,6 +94,25 @@ export function groupTasks(
     groups.sort((a, b) => a.label.localeCompare(b.label));
     if (map.has(UNGROUPED_KEY) || opts.includeEmpty) {
       groups.push({ key: UNGROUPED_KEY, label: 'Non assigné', color: '#6b7280', order: 999, tasks: map.get(UNGROUPED_KEY) || [] });
+    }
+    return groups;
+  }
+
+  if (groupBy === 'parent') {
+    // Modules / packages / epics: one block per parent task, labelled with its title when it is listed too.
+    const titles = new Map(tasks.map((t) => [t.taskId, t.title]));
+    const map = new Map<string, Task[]>();
+    for (const t of tasks) {
+      const key = t.parent || UNGROUPED_KEY;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    const groups: TaskGroup[] = [...map.entries()]
+      .filter(([key]) => key !== UNGROUPED_KEY)
+      .map(([key, list]) => ({ key, label: titles.has(key) ? `${key} · ${titles.get(key)}` : key, order: 0, tasks: list }))
+      .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
+    if (map.has(UNGROUPED_KEY)) {
+      groups.push({ key: UNGROUPED_KEY, label: UNGROUPED_LABELS.parent!, color: '#6b7280', order: 9999, tasks: map.get(UNGROUPED_KEY) || [] });
     }
     return groups;
   }

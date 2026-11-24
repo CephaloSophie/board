@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { HistoryEntry, TaxonomyItem } from '../../types';
 import { fmtDate } from '../../utils/format';
 import { fmtDayLabel, fmtTime, localDayKey } from '../../utils/dates';
-import { FIELD_ICONS, FIELD_LABELS, HISTORY_GROUPS, labelForValue } from '../../utils/historyFormat';
+import { EVENT_FIELDS, FIELD_ICONS, FIELD_LABELS, HISTORY_GROUPS, eventSentence, labelForValue } from '../../utils/historyFormat';
 import Avatar from '../common/Avatar';
 
 const TEXT_FIELDS = new Set(['title', 'description', 'instructions', 'acceptance']);
@@ -82,6 +82,15 @@ function HistoryRow({
         {(h.to || h.from) && <q className="timeline__quote">{String(h.to || h.from)}</q>}
       </>
     );
+  } else if (EVENT_FIELDS.has(h.field)) {
+    const e = eventSentence(h.field, h.note, h.from, h.to);
+    body = (
+      <>
+        {e.verb.charAt(0).toLowerCase() + e.verb.slice(1)}
+        {e.detail && <span className="timeline__note"> {e.detail}</span>}
+        {e.quote && <q className="timeline__quote">{e.quote}</q>}
+      </>
+    );
   } else if (TEXT_FIELDS.has(h.field)) {
     body = (
       <>
@@ -97,7 +106,7 @@ function HistoryRow({
       </>
     );
   }
-  const showNote = h.note && h.field !== 'comment' && h.field !== 'created';
+  const showNote = h.note && h.field !== 'comment' && h.field !== 'created' && !EVENT_FIELDS.has(h.field);
   return (
     <div className="timeline__row">
       <span className="timeline__icon" title={label}>

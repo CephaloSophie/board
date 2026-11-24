@@ -13,6 +13,9 @@ const TYPE_META: Record<NotificationType, { icon: string; verb: string }> = {
   reply: { icon: '↩', verb: 'a répondu sur' },
   reaction: { icon: '☺', verb: 'a réagi sur' },
   status: { icon: '◉', verb: 'a changé le statut de' },
+  criteria: { icon: '☑', verb: "a validé tous les critères d'acceptation de" },
+  merge_request: { icon: '⑂', verb: 'a mis à jour une merge request de' },
+  subtask: { icon: '⊟', verb: 'a ajouté une sous-tâche à' },
 };
 
 // Notifications are fetched once when the app loads (see api/notifications).
