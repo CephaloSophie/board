@@ -26,9 +26,11 @@ npm run setup && npm run build        # racine : dépendances + build du front
 npm start | npm run start:dev         # PM2 (ecosystem.config.cjs) : kydos-server + kydos-client ; npm run health
 npm run release:align -- --dry-run    # aligne sprints/versions sur la version courante (19.0.3)
 npm run admin:create                  # super admin en console (--promote, --reset-password, admin:list)
-cd server && npm test                 # node:test sur base *_test (≈52 tests, ~25 s)
+cd server && npm test                 # node:test sur base *_test (≈60 tests, ~30 s)
 cd server && npm run migrate -- --dry-run   # puis npm run migrate (idempotent)
+cd server && npm run migrate:board-001 -- --dry-run   # acceptance → criteria (idempotent)
 cd client && npx tsc -b && npm run build
+cd client && npm test                 # tests purs (découpage des critères), node --test natif TS
 ```
 
 ## Règles importantes
@@ -53,6 +55,11 @@ cd client && npx tsc -b && npm run build
   `todo | inprogress | done` (source de vérité de « terminé »).
 - **Task** : modifications des champs suivis via `applyPatchWithHistory` (historique utilisé par
   burndowns / vélocité) ; `labels`, `parent`, `resolvedAt`, `external` (import Jira).
+- **Sous-tâches** : `parent` = clé de la tâche parente, validé par `assertValidParent` (existence,
+  boucle, profondeur) ; liens tracés dans l'historique des deux tâches (`subtask`).
+- **Critères d'acceptation** : `criteria[]` (texte riche, coché, commentaires) est la source de vérité,
+  `acceptance` n'est qu'un miroir texte synchronisé au `save` ; routes `/tasks/:id/criteria`.
+- **Merge requests** : `mergeRequests[]` (lien collé, forge reconnue, état) ; routes `/tasks/:id/merge-requests`.
 - **Sprint** : cycle draft → ready → active → finished géré uniquement par `/sprints` (un seul actif,
   instantané au démarrage, rapport à la clôture, rétrospective auto).
 - **Filtres** : grammaire unique `compileTaskQuery` (jetons `@me`, `@current`, `@open`, `@none`,

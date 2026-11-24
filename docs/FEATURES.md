@@ -1,19 +1,25 @@
 # Fonctionnalités de Kýdos Board
 
-État au 15/09/2026 (Lot 1 + planification, traçabilité et collaboration). Specs de référence : `docs/product/PM_ANALYSIS.md` (chef de
+État au 24/11/2026 (Lot 1 + planification, traçabilité, collaboration et BOARD-001 : sous-tâches, recette, merge requests). Specs de référence : `docs/product/PM_ANALYSIS.md` (chef de
 projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira).
 
 ## 1. Board et tâches
 
 - **3 vues** : Board (mini-boards par groupe), Jira (kanban par statut), Liste (tableau triable).
-- **Regroupement** par sprint, version, catégorie, techno, domaine, type, priorité, statut, assigné
-  ou aucun ; barre latérale des groupes, statistiques par groupe (points à faire / en cours /
+- **Regroupement** par sprint, version, catégorie, techno, domaine, type, priorité, statut, assigné,
+  **tâche parente (module / package / epic)** ou aucun ; barre latérale des groupes, statistiques par groupe (points à faire / en cours /
   terminés selon la **catégorie** du statut).
 - **Glisser-déposer** (historisé, membres et administrateurs) : **toutes les colonnes du workflow**
   sont affichées, même vides (option « Tous les statuts »), et une carte peut être déposée dans un
   **autre groupe** : le champ regroupé change avec le statut (sprint, version, assigné, priorité,
   type, catégorie…). Option « Groupes vides » : sprints à venir, versions non publiées, membres et
   backlog restent visibles comme cibles (repliés en zone de dépôt, dépliables).
+- **Hauteur de ligne constante** : chaque groupe (sprint, version…) a la même hauteur (Compacte,
+  Normale, Grande, Très grande ou Auto) et **chaque colonne de statut défile séparément** ; le bord
+  inférieur d'une ligne se glisse pour ajuster la hauteur de toutes les lignes (double-clic : valeur
+  par défaut). Préférence mémorisée dans le navigateur.
+- **Cartes** : tâche parente (`↥ KB-12`), avancement des sous-tâches (`⊟ 2/5`), critères validés
+  (`☑ 3/7`), merge request (état le plus avancé).
 - **Tâche** : titre, description, instructions, critères d'acceptation, statut, priorité, type,
   catégorie, techno, domaine, version, sprint, **étiquettes**, **tâche parente**, **échéance**,
   points, estimation, durée réelle, assigné, rapporteur, commentaires, historique complet.
@@ -21,8 +27,33 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
   couleurs, titres, listes, cases à cocher, citations, code, tableaux, liens, **images** (bouton,
   copier-coller ou glisser), `@mentions` avec auto-complétion, clés de tâche liées (`KB-12`),
   aperçu. Rendu sûr (aucun HTML brut).
+- **Sous-tâches** (module, package, story → tâches livrables) : tâche parente choisie par recherche
+  (clé ou titre), hiérarchie validée (parent existant, pas de boucle, 12 niveaux max), fil d'Ariane des
+  ancêtres, avancement consolidé (tâches et points), création rapide d'une sous-tâche qui hérite du
+  sprint / version / catégorie / techno / domaine / priorité du parent, rattachement d'une tâche
+  existante, détachement ; la suppression d'un parent détache ses sous-tâches. Chaque lien est tracé
+  dans l'historique **des deux tâches** et notifié aux responsables du parent.
+- **Critères d'acceptation (recette)** : liste ordonnée par priorité (**glisser-déposer** ou ↑ / ↓),
+  texte riche (listes, liens, images), **case à cocher qui barre le cas validé** (qui / quand),
+  modification en place (double-clic), filtres Tous / À valider / Validés, barre d'avancement,
+  **discussion par critère** (commentaires avec images, liens et `@mentions`). **Coller une liste**
+  (Word, Google Docs, Jira, e-mail) la découpe en cas séparés : puces, numéros, `AC1:`, cases
+  `[ ]` / `[x]` / ✓, scénarios Gherkin (Scénario / Étant donné / Quand / Alors), paragraphes, ou
+  **expression régulière** libre (préréglages : point-virgule, fin de phrase, numéros…), avec aperçu
+  modifiable avant ajout. Notification quand tous les critères sont validés.
+- **Merge requests** : le développeur colle le lien (GitLab, GitHub, Bitbucket, Azure DevOps,
+  Gitea) ; dépôt et numéro reconnus, titre optionnel, état brouillon / ouverte / fusionnée / fermée,
+  plusieurs MR par tâche, recherche par URL ; ajout et fusion notifiés, tout est historisé.
+- **Popup de création** : éditeur riche (comme les commentaires), **modèles** (User story, Bug,
+  Technique, Module / package — avec critères de départ), critères d'acceptation, merge requests,
+  tâche parente, **brouillon enregistré automatiquement** (restauré à la réouverture), « Créer et en
+  ajouter une autre » (garde sprint, version, parent), Ctrl+Entrée, Échap.
+- **Collage stylé** dans tous les éditeurs : le HTML copié depuis Word, Google Docs, Confluence ou
+  une page web devient du Markdown (titres, gras, italique, souligné, barré, listes imbriquées, cases
+  à cocher, liens, images distantes, tableaux, code, citations) ; Ctrl+Maj+V colle le texte brut.
 - Dates dérivées : `resolvedAt` (entrée dans un statut « terminé »), `statusChangedAt`.
-- Popup ou page dédiée `/projects/:key/tasks/:taskId`, décalage sprint précédent / suivant.
+- Popup ou page dédiée `/projects/:key/tasks/:taskId`, décalage sprint précédent / suivant, copie du
+  lien, navigation parent / sous-tâche dans la popup (avec retour), Échap pour fermer.
 - Tâches importées : clé Jira d'origine (lien), assigné d'origine conservé si non rapproché,
   commentaires signés « Jira ».
 
@@ -90,8 +121,13 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
 
 - **Commentaires en fil** (un niveau de réponses), modification / suppression (auteur ou admin),
   **réactions** emoji par utilisateur (👍 👎 ❤️ 🎉 😄 😕 🚀 👀 ✅ 🔥), mentions et images.
+- **Discussions enrichies** : **épingler** un commentaire (affiché en tête), **résoudre / rouvrir** une
+  discussion (repliée sur une ligne une fois résolue), **citer** un commentaire, **lien direct** vers un
+  commentaire, filtres Tous / Épinglés / Non résolus / Me concernant, ordre chronologique ou inverse
+  (mémorisé), longues discussions repliées, **brouillon conservé** par tâche.
 - **Notifications** (cloche dans l'en-tête) : mention, assignation, commentaire sur une tâche dont on
-  est assigné ou rapporteur, réponse, réaction, changement de statut. Jamais pour ses propres
+  est assigné ou rapporteur, réponse, réaction, changement de statut, tous les critères validés,
+  merge request liée ou fusionnée, nouvelle sous-tâche. Jamais pour ses propres
   actions ; une seule notification par personne et par action. Chargées **une fois au chargement
   de l'application** (pas de WebSocket ni de polling), bouton « Actualiser », marquer lu / tout lu,
   effacer les lues ; un clic ouvre la tâche sur le commentaire concerné.
@@ -168,6 +204,11 @@ réinitialisation du mot de passe, désactivation / réactivation.
 | Reste à faire du sprint précédent | rapport de sprint séparé | panneau dédié, décalage en un clic |
 | Journal d'activité projet filtrable | non (historique par ticket) | par membre, sprint, version, période, type |
 | Glisser-déposer entre sprints / assignés sur le board | backlog uniquement | toute dimension de regroupement |
+| Critères d'acceptation | champ texte libre | liste priorisée, cochable, commentable, découpage automatique d'un collage |
+| Sous-tâches | 1 niveau (sous-tâche) + epics | hiérarchie libre validée, avancement consolidé, board par module / package |
+| Lien merge request | intégration dev (applications Git) | lien collé, forge reconnue, état et historique, sans configuration |
+| Discussions | commentaires à plat | épinglage, résolution, citations, filtres, brouillons |
+| Board à colonnes défilantes | hauteur libre | hauteur de ligne constante, défilement par statut |
 
 ## 12. Limites connues et prochain lot
 
