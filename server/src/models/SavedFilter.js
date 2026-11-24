@@ -20,7 +20,7 @@ const FILTER_ARRAY_FIELDS = [
 const FILTER_DATE_FIELDS = ['createdFrom', 'createdTo', 'updatedFrom', 'updatedTo'];
 const VIEWS = ['grouped', 'jira', 'list'];
 const VISIBILITIES = ['private', 'shared'];
-const GROUP_KEYS = ['none', 'sprint', 'version', 'category', 'techno', 'area', 'type', 'priority', 'status', 'assignee'];
+const GROUP_KEYS = ['none', 'sprint', 'version', 'category', 'techno', 'area', 'type', 'priority', 'status', 'assignee', 'parent'];
 const SORT_KEYS = ['taskId', 'title', 'status', 'priority', 'version', 'sprint', 'complexity', 'assignee', 'updatedAt', 'createdAt', 'dueDate'];
 const DATE_VALUE = /^(\d{4}-\d{2}-\d{2}([T ][\d:.]+Z?([+-]\d{2}:?\d{2})?)?|-\d{1,4}[dwm]|@sprintStart|@sprintEnd|now)$/;
 

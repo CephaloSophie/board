@@ -11,16 +11,19 @@ src/
                         Activity (journal), Notification, Attachment (images)
   routes/               auth, users, projects, members, taxonomies, sprints, versions, tasks, events,
                         savedFilters, dashboards, analytics, import, export, activity (projet + global),
-                        notifications, attachments (upload projet + /api/files public)
+                        notifications, attachments (upload projet + /api/files public),
+                        criteria (critères d'acceptation + discussions), mergeRequests
   utils/                taskQuery (filtres), taskHistory (historique), taxonomyMeta (catégories/meta),
                         duration, versions, asyncErrors, httpError, jwt, password,
-                        activity (logActivity, taskActivities, projectActivity), notify (mentions, excerptOf, notify)
+                        activity (logActivity, taskActivities, projectActivity), notify (mentions, excerptOf, notify),
+                        criteria, mergeRequests, subtasks (hiérarchie), taskEvents (findTask, recordTaskEvents)
   analytics/timeline.js valueAt + sprintTimeline (burndown/burnup)
   dashboards/widgets.js catalogue, validation et modèles de widgets
   import/csv.js         CSV RFC 4180 (lecture/écriture)
   import/jira/          parseFiles, dates, markup, suggest, importer (runJiraImport, rollbackImport),
                         externalJson (format « systèmes externes » → JSON search ; CLI scripts/jira-convert.js)
   migrations/           2026-09-lot1.js (exporte migrate(), CLI via npm run migrate),
+                        2026-11-board-001.js (acceptance → criteria, npm run migrate:board-001),
                         alignRelease.js (sprints / versions alignés sur la version courante, npm run release:align)
   scripts/ (hors src)   create-superadmin.js (npm run admin:create / admin:list), jira-convert.js
   seed/seed.js          tasks.json → projet KB (insert-only ; --overwrite pour réécrire) : anciennes versions publiées,
@@ -28,7 +31,8 @@ src/
 test/
   helpers.js            startTestServer() : base *_test vidée, users admin/dev, client fetch
   fixtures/jira/        exports Jira de référence (CSV Cloud, JSON search, sprints, versions, external-system)
-  *.test.js             api, csv, socle, migration, alignRelease, superadmin, savedFilters, sprints, import, importExternal, dashboards, collaboration
+  *.test.js             api, csv, socle, migration, alignRelease, superadmin, savedFilters, sprints, import, importExternal, dashboards, collaboration,
+                        board001 (critères, sous-tâches, MR, commentaires épinglés / résolus), board001.unit (sans base)
 ```
 
 ## Conventions
@@ -41,6 +45,9 @@ test/
 - Sélection de tâches (liste, stats filtrées, export, analytics) : toujours via `compileTaskQuery`.
 - Modification de champs suivis d'une tâche : `applyPatchWithHistory(task, patch, user, note, { categoryOf })`
   avec `categoryOf` issu de `statusContext(projectId)`.
+- Événement de tâche qui n'est pas un champ (critère coché, MR liée, sous-tâche…) :
+  `recordTaskEvents(req, task, [{ field, from, to, note }])` (historique + journal).
+- `parent` écrit par l'API : toujours `assertValidParent` avant `applyPatchWithHistory`.
 - « Terminé » = catégorie de statut (`statusCategoryOf`), jamais une liste de clés en dur.
 - `meta` de taxonomie : `mergeMeta` ; les clés de cycle de vie (sprint/version) ne s'écrivent que
   dans `sprints.routes.js` / `versions.routes.js` ; utiliser `markModified('meta')`.

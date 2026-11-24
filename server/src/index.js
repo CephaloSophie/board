@@ -11,6 +11,8 @@ const usersRoutes = require('./routes/users.routes');
 const projectsRoutes = require('./routes/projects.routes');
 const taxonomiesRoutes = require('./routes/taxonomies.routes');
 const tasksRoutes = require('./routes/tasks.routes');
+const criteriaRoutes = require('./routes/criteria.routes');
+const mergeRequestsRoutes = require('./routes/mergeRequests.routes');
 const eventsRoutes = require('./routes/events.routes');
 const savedFiltersRoutes = require('./routes/savedFilters.routes');
 const membersRoutes = require('./routes/members.routes');
@@ -39,6 +41,9 @@ mount('/api/auth', authRoutes);
 mount('/api/users', usersRoutes);
 mount('/api/projects', projectsRoutes);
 mount('/api/projects/:projectKey/taxonomies', taxonomiesRoutes);
+// Task sub-resources first: they would otherwise run the tasks router middleware twice.
+mount('/api/projects/:projectKey/tasks/:taskId/criteria', criteriaRoutes);
+mount('/api/projects/:projectKey/tasks/:taskId/merge-requests', mergeRequestsRoutes);
 mount('/api/projects/:projectKey/tasks', tasksRoutes);
 mount('/api/projects/:projectKey/events', eventsRoutes);
 mount('/api/projects/:projectKey/filters', savedFiltersRoutes);

@@ -1,6 +1,6 @@
 const { Schema, model } = require('mongoose');
 
-const NOTIFICATION_TYPES = ['mention', 'assigned', 'comment', 'reply', 'reaction', 'status'];
+const NOTIFICATION_TYPES = ['mention', 'assigned', 'comment', 'reply', 'reaction', 'status', 'criteria', 'merge_request', 'subtask'];
 
 // In-app notifications, fetched by the client once per page load (no push / polling).
 const notificationSchema = new Schema(

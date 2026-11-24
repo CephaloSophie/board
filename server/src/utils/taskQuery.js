@@ -33,9 +33,13 @@ const SORT_FIELDS = [
   'dueDate',
   'resolvedAt',
 ];
-const SUMMARY_PROJECTION = '-comments -history -instructions -acceptance -spec';
+// Card / list rows: no long texts; criteria reduced to their done flags (progress badge).
+const SUMMARY_PROJECTION = [
+  '-comments -history -instructions -acceptance -spec',
+  '-criteria.text -criteria.comments -criteria.doneBy -criteria.doneAt -criteria.createdBy -criteria.createdAt -criteria.updatedAt',
+].join(' ');
 const RELATIVE_DATE = /^-(\d{1,4})([dwm])$/;
-const SEARCH_FIELDS = ['taskId', 'title', 'module', 'description', 'instructions', 'acceptance', 'labels', 'external.key'];
+const SEARCH_FIELDS = ['taskId', 'title', 'module', 'description', 'instructions', 'acceptance', 'labels', 'external.key', 'mergeRequests.url', 'mergeRequests.title'];
 
 function toArray(v) {
   if (v === undefined || v === null || v === '') return [];

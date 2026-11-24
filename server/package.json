@@ -10,6 +10,7 @@
     "seed": "node src/seed/seed.js",
     "seed:overwrite": "node src/seed/seed.js --overwrite",
     "migrate": "node src/migrations/2026-09-lot1.js",
+    "migrate:board-001": "node src/migrations/2026-11-board-001.js",
     "jira:convert": "node scripts/jira-convert.js",
     "release:align": "node src/migrations/alignRelease.js",
     "admin:create": "node scripts/create-superadmin.js",
