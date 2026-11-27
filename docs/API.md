@@ -162,8 +162,10 @@ Types : `mention, assigned, comment, reply, reaction, status`. Pas de push : le 
 ## Filtres enregistrés
 
 `/projects/:key/filters` — GET (visibles), POST `{ name, description?, filters, view, groupBy,
-sort, visibility, isDefault?, isStarred? }`, GET/PATCH/DELETE `/:id` (propriétaire ; admin projet
+sort, groupRange?, visibility, isDefault?, isStarred? }`, GET/PATCH/DELETE `/:id` (propriétaire ; admin projet
 pour les partagés), POST `/:id/duplicate`, PUT `/:id/star { starred }`, PUT `/:id/default { isDefault }`.
+`groupRange` (plage de groupes du board, assainie, `null` = aucune) : `{ mode: all|from|until|around,
+ref: '@current'|clé, before: entier|null, after: entier|null, keep: [statuts], keepSide: before|after|both, showNone: booléen }`.
 
 ## Dashboards et analyses
 

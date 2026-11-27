@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { SavedFilter, sanitizeFilters, VIEWS, VISIBILITIES, GROUP_KEYS, SORT_KEYS } = require('../models/SavedFilter');
+const { SavedFilter, sanitizeFilters, sanitizeGroupRange, VIEWS, VISIBILITIES, GROUP_KEYS, SORT_KEYS } = require('../models/SavedFilter');
 const { requireAuth } = require('../middleware/auth');
 const { loadProject } = require('../middleware/project');
 
@@ -59,6 +59,7 @@ function applyBody(filter, body) {
   if (body.view !== undefined) filter.view = body.view;
   if (body.groupBy !== undefined) filter.groupBy = body.groupBy;
   if (body.sort !== undefined) filter.sort = { key: String(body.sort.key), dir: Number(body.sort.dir) === -1 ? -1 : 1 };
+  if (body.groupRange !== undefined) filter.groupRange = sanitizeGroupRange(body.groupRange);
   if (body.visibility !== undefined) filter.visibility = body.visibility;
 }
 
@@ -121,6 +122,7 @@ router.post('/:id/duplicate', async (req, res) => {
     view: source.view,
     groupBy: source.groupBy,
     sort: source.sort,
+    groupRange: sanitizeGroupRange(source.groupRange),
     visibility: 'private',
   });
   await copy.populate('owner', OWNER_FIELDS);

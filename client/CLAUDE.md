@@ -11,8 +11,10 @@ src/
                            members, dashboards (+ useAnalytics), imports, users, events, activity (infini), notifications, attachments (uploadImage)
   hooks/useProjectRole.ts  rôle effectif (isAdmin, canWrite, isViewer, isArchived)
   hooks/useProjectPeople.ts membres indexés (mentionLabel, userName)
+  hooks/useWheelChaining.ts molette enchaînée colonne de statut → board (à la limite de la colonne)
   pages/                   BoardPage, PlanningPage, ActivityPage (journal), DashboardPage, EventsPage, TaskPage, ProjectSettingsPage, AdminPage, ProjectsPage, LoginPage
-  components/Board/        GroupedBoard (moteur kanban partagé, dépôt entre groupes), JiraBoard, ListBoard, Filters, SavedFiltersBar, GroupStats
+  components/Board/        GroupedBoard (moteur kanban partagé, dépôt entre groupes), JiraBoard, ListBoard, Filters, SavedFiltersBar, GroupStats,
+                           GroupRangeBar (plage de groupes), OutOfRangeBadge ; groupUtils (groupTasks, rangeBoardGroups)
   components/common/       RichText (Markdown sûr), RichTextEditor (barre d'outils, images, @mentions, collage stylé), Avatar, LabelsInput, TaskPicker
   components/Task/         TaskDetail, TaskModal (navigation parent / sous-tâche), NewTaskModal (modèles, brouillon), AcceptanceEditor
                            (critères : tri, coche, collage découpé), TaskCriteria (+ discussions), MergeRequestList, SubtaskPanel, CommentList, HistoryList
@@ -23,7 +25,9 @@ src/
   components/ProjectSettings/  GeneralTab, SprintsTab, VersionsPanel, MembersTab, WorkflowTab, ImportExportTab, DangerZoneTab, ReplaceValueDialog
   components/Admin/        TaxonomyAdmin, UsersAdmin
   utils/                   boardUrlState, status (catégories, SPRINT_STATUS_META, rôles), dates, versions, format, useDebounced,
-                           acceptance (découpage d'un texte en critères, testé), htmlToMarkdown (collage stylé), mergeRequests, historyFormat
+                           acceptance (découpage d'un texte en critères, testé), htmlToMarkdown (collage stylé), mergeRequests, historyFormat,
+                           groupRange (ordre des sprints / versions / priorités / statuts, fenêtre autour d'une référence,
+                           exceptions par statut, testé), scrollChain (décision de chaînage de la molette, testé)
   styles/                  themes.css (variables) + global.css (tout le style)
 ```
 
@@ -31,8 +35,11 @@ src/
 
 - Données serveur uniquement via react-query. Clés : `[ressource, projectKey, …]`. Après une action
   aux effets multiples (sprint, import, réaffectation), appeler `useInvalidateProject(projectKey)`.
-- **Board** : l'état (vue, regroupement, tri, filtres, recherche, filtre enregistré) vit dans l'URL
-  (`utils/boardUrlState.ts`) ; passer par `setBoard()` dans `BoardPage`.
+- **Board** : l'état (vue, regroupement, tri, filtres, recherche, plage de groupes, filtre enregistré) vit dans l'URL
+  (`utils/boardUrlState.ts`) ; passer par `setBoard()` dans `BoardPage`. Un nouveau réglage du board s'ajoute à
+  `BoardState`, à `boardStateToParams/FromParams`, à `boardStateOf`/`isSameBoardState` et au modèle `SavedFilter`.
+- Tests purs : un module testé n'importe à l'exécution que des modules purs, avec l'extension `.ts`
+  (`import { x } from './versions.ts'`, autorisé par `allowImportingTsExtensions`) ; les types via `import type`.
 - Droits : masquer / désactiver selon `useProjectRole` ; le serveur reste l'autorité (403/423).
 - Erreurs : `errorMessage(e)` pour l'affichage, `e instanceof ApiError && e.code === '…'` pour les cas métier.
 - Téléchargements authentifiés : `downloadFile(path, name)` (pas de lien direct).

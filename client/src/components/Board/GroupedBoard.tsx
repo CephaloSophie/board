@@ -15,7 +15,10 @@ import { SPRINT_STATUS_META } from '../../utils/status';
 import TaskCard from './TaskCard';
 import GroupSidebar from './GroupSidebar';
 import GroupStats from './GroupStats';
-import { groupTasks, type GroupByKey, type TaskGroup } from './groupUtils';
+import { groupTasks, rangeBoardGroups, type BoardRange, type GroupByKey, type TaskGroup } from './groupUtils';
+import type { RangeGroupInfo } from '../../utils/groupRange';
+import { useWheelChaining } from '../../hooks/useWheelChaining';
+import OutOfRangeBadge from './OutOfRangeBadge';
 
 // Where a card was dropped: the group it now belongs to (null when not grouped)
 // and the status column (null = keep the status, e.g. dropped on an empty group).
@@ -38,6 +41,8 @@ export interface BoardProps {
   // Constant height (px) of every group's columns; each status column scrolls on its own. null = grow with content.
   laneHeight?: number | null;
   onLaneHeightChange?: (height: number) => void;
+  // Group range filter ("Plage de groupes"), applied after grouping.
+  range?: BoardRange;
 }
 
 export const LANE_HEIGHT_MIN = 200;
@@ -116,6 +121,7 @@ export default function GroupedBoard({
   variant = 'grouped',
   laneHeight = null,
   onLaneHeightChange,
+  range,
 }: BoardProps) {
   // Live height while the resize handle is dragged (committed on release).
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -150,10 +156,18 @@ export default function GroupedBoard({
   const statuses = taxonomiesByKind(taxonomies, 'status');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const groups = useMemo(
-    () => groupTasks(tasks, groupBy, taxonomies, { includeEmpty: showEmptyGroups && groupBy !== 'none', users }),
-    [tasks, groupBy, taxonomies, showEmptyGroups, users]
+  const groups: (TaskGroup & RangeGroupInfo)[] = useMemo(
+    () =>
+      rangeBoardGroups(
+        groupTasks(tasks, groupBy, taxonomies, { includeEmpty: showEmptyGroups && groupBy !== 'none', users }),
+        groupBy,
+        taxonomies,
+        range
+      ).groups,
+    [tasks, groupBy, taxonomies, showEmptyGroups, users, range]
   );
+  // At a column's top / bottom, the wheel goes on scrolling the board (swimlane to swimlane).
+  useWheelChaining(containerRef, groupBy === 'none');
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
@@ -194,7 +208,7 @@ export default function GroupedBoard({
     return cols;
   }
 
-  function renderGroup(group: TaskGroup) {
+  function renderGroup(group: TaskGroup & RangeGroupInfo) {
     const isCurrent = groupBy === 'sprint' && !!currentSprintKey && group.key === currentSprintKey;
     const empty = group.tasks.length === 0;
     const collapsed = groupBy !== 'none' && (empty ? !toggled.has(group.key) : toggled.has(group.key));
@@ -211,7 +225,11 @@ export default function GroupedBoard({
       variant === 'jira' ? list.slice().sort((a, b) => (a.priority || '').localeCompare(b.priority || '') || a.taskId.localeCompare(b.taskId)) : list;
 
     return (
-      <section id={`group-block-${cssId(group.key)}`} className={`group-block${empty ? ' group-block--empty' : ''}`} key={group.key}>
+      <section
+        id={`group-block-${cssId(group.key)}`}
+        className={`group-block${empty ? ' group-block--empty' : ''}${group.outOfRange ? ' group-block--out' : ''}`}
+        key={group.key}
+      >
         {groupBy !== 'none' && (
           <header className="group-block__head">
             <button className="icon-btn" onClick={() => toggleGroup(group.key)} title={collapsed ? 'Déplier' : 'Replier'}>
@@ -228,6 +246,7 @@ export default function GroupedBoard({
             ) : (
               group.sublabel && <span className="group-block__sub">{group.sublabel}</span>
             )}
+            {group.outOfRange && <OutOfRangeBadge hiddenCount={group.hiddenCount} />}
             <GroupStats tasks={group.tasks} taxonomies={taxonomies} />
           </header>
         )}

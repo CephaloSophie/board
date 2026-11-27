@@ -3,7 +3,7 @@ import { api, get, post, patch, del } from './client';
 import type { SavedFilter } from '../types';
 
 export type SavedFilterInput = Partial<
-  Pick<SavedFilter, 'name' | 'description' | 'filters' | 'view' | 'groupBy' | 'sort' | 'visibility'>
+  Pick<SavedFilter, 'name' | 'description' | 'filters' | 'view' | 'groupBy' | 'sort' | 'groupRange' | 'visibility'>
 > & { isDefault?: boolean; isStarred?: boolean };
 
 const put = <T,>(path: string, data: unknown) => api<T>(path, { method: 'PUT', body: JSON.stringify(data) });

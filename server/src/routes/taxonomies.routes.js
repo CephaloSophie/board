@@ -166,11 +166,31 @@ router.post('/:id/replace', adminOnly, async (req, res) => {
     await task.save();
   }
 
-  const filters = await SavedFilter.find({ project: req.project._id, [`filters.${kind}`]: item.key });
+  const filters = await SavedFilter.find({
+    project: req.project._id,
+    $or: [
+      { [`filters.${kind}`]: item.key },
+      // Group range: reference group of that dimension, or exception status.
+      { groupBy: kind, 'groupRange.ref': item.key },
+      ...(kind === 'status' ? [{ 'groupRange.keep': item.key }] : []),
+    ],
+  });
   for (const f of filters) {
-    const values = (f.filters[kind] || []).map((v) => (v === item.key ? replacementKey : v));
-    f.filters = { ...f.filters, [kind]: [...new Set(values)] };
-    f.markModified('filters');
+    if ((f.filters?.[kind] || []).includes(item.key)) {
+      const values = (f.filters[kind] || []).map((v) => (v === item.key ? replacementKey : v));
+      f.filters = { ...f.filters, [kind]: [...new Set(values)] };
+      f.markModified('filters');
+    }
+    const range = f.groupRange;
+    if (range && typeof range === 'object') {
+      const next = { ...range };
+      if (f.groupBy === kind && next.ref === item.key) next.ref = replacementKey || '@current';
+      if (kind === 'status' && Array.isArray(next.keep)) {
+        next.keep = [...new Set(next.keep.map((v) => (v === item.key ? replacementKey : v)).filter(Boolean))];
+      }
+      f.groupRange = next;
+      f.markModified('groupRange');
+    }
     await f.save();
   }
 

@@ -443,6 +443,16 @@ export interface SavedFilter {
   view: BoardView;
   groupBy: string;
   sort: BoardSort;
+  // Group range of the board (see utils/groupRange.ts); absent on older filters.
+  groupRange?: Partial<{
+    mode: string;
+    ref: string;
+    before: number | null;
+    after: number | null;
+    keep: string[];
+    keepSide: string;
+    showNone: boolean;
+  }> | null;
   visibility: SavedFilterVisibility;
   isOwner: boolean;
   isStarred: boolean;
