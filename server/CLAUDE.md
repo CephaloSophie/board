@@ -32,7 +32,7 @@ test/
   helpers.js            startTestServer() : base *_test vidée, users admin/dev, client fetch
   fixtures/jira/        exports Jira de référence (CSV Cloud, JSON search, sprints, versions, external-system)
   *.test.js             api, csv, socle, migration, alignRelease, superadmin, savedFilters, sprints, import, importExternal, dashboards, collaboration,
-                        board001 (critères, sous-tâches, MR, commentaires épinglés / résolus), board001.unit (sans base)
+                        board001 (critères, sous-tâches, MR, commentaires épinglés / résolus), board001.unit, groupRange.unit (sans base)
 ```
 
 ## Conventions

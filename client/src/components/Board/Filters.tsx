@@ -14,7 +14,7 @@ import { SPRINT_STATUS_META } from '../Admin/TaxonomyAdmin';
 import { countActiveFilters } from '../../utils/boardUrlState';
 import { STATUS_CATEGORY_META } from '../../utils/status';
 
-interface FilterOption {
+export interface FilterOption {
   value: string;
   label: string;
   color?: string;
@@ -134,7 +134,7 @@ export default function Filters({
   );
 }
 
-function FilterDropdown({
+export function FilterDropdown({
   label,
   options,
   selected,

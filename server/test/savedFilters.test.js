@@ -87,3 +87,38 @@ test('owner can update and delete', async () => {
   const gone = await dev.put(`/projects/SF/filters/${id}/star`, {});
   assert.equal(gone.status, 404);
 });
+
+test('group range is sanitized, saved, duplicated and follows taxonomy replacements', async () => {
+  const created = await dev.post('/projects/SF/filters', {
+    name: 'Sprint courant + 2',
+    groupBy: 'priority',
+    groupRange: { mode: 'from', ref: 'P9', before: 'x', after: '2.6', keep: ['zombie', 'zombie', 42, ''], showNone: false, $evil: 1 },
+  });
+  assert.equal(created.status, 201);
+  const f = created.body.filter;
+  assert.deepEqual(f.groupRange, { mode: 'from', ref: 'P9', before: null, after: 2, keep: ['zombie'], keepSide: 'before', showNone: false });
+
+  const junk = await dev.patch(`/projects/SF/filters/${f._id}`, { groupRange: { mode: 'evil', after: 1e9 } });
+  assert.deepEqual(junk.body.filter.groupRange, { mode: 'all', ref: '@current', before: null, after: 999, keep: [], keepSide: 'before', showNone: true });
+  const upd = await dev.patch(`/projects/SF/filters/${f._id}`, { groupRange: { mode: 'around', ref: 'P9', before: 1, after: 1, keep: ['zombie'], keepSide: 'both' } });
+  assert.equal(upd.body.filter.groupRange.mode, 'around');
+  assert.equal(upd.body.filter.groupRange.keepSide, 'both');
+
+  const copy = await dev.post(`/projects/SF/filters/${f._id}/duplicate`, {});
+  assert.equal(copy.status, 201);
+  assert.deepEqual(copy.body.filter.groupRange, upd.body.filter.groupRange);
+
+  // Filters saved before the feature have no range.
+  const legacy = await dev.post('/projects/SF/filters', { name: 'Sans plage' });
+  assert.equal(legacy.body.filter.groupRange, null);
+
+  // Replacing the reference priority / an exception status rewrites the range.
+  const p9 = await admin.post('/projects/SF/taxonomies', { kind: 'priority', key: 'P9', label: 'P9' });
+  await admin.post('/projects/SF/taxonomies', { kind: 'priority', key: 'P8', label: 'P8' });
+  const zombie = await admin.post('/projects/SF/taxonomies', { kind: 'status', key: 'zombie', label: 'Zombie', meta: { category: 'todo' } });
+  assert.equal((await admin.post(`/projects/SF/taxonomies/${p9.body.taxonomy._id}/replace`, { replacementKey: 'P8' })).status, 200);
+  assert.equal((await admin.post(`/projects/SF/taxonomies/${zombie.body.taxonomy._id}/replace`, { replacementKey: 'pending' })).status, 200);
+  const after = (await dev.get(`/projects/SF/filters/${f._id}`)).body.filter.groupRange;
+  assert.equal(after.ref, 'P8');
+  assert.deepEqual(after.keep, ['pending']);
+});

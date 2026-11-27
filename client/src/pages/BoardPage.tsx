@@ -11,11 +11,13 @@ import GroupedBoard, { LANE_HEIGHT_MAX, LANE_HEIGHT_MIN, type DropTarget } from 
 import JiraBoard from '../components/Board/JiraBoard';
 import ListBoard from '../components/Board/ListBoard';
 import SavedFiltersBar from '../components/Board/SavedFiltersBar';
+import GroupRangeBar, { type RangeSummary } from '../components/Board/GroupRangeBar';
 import TaskModal from '../components/Task/TaskModal';
 import NewTaskModal from '../components/Task/NewTaskModal';
 import type { BoardView, SavedFilter, Task } from '../types';
 import { fmtDur, hoursOf } from '../utils/format';
-import { GROUP_OPTIONS, UNASSIGNED, type GroupByKey } from '../components/Board/groupUtils';
+import { GROUP_OPTIONS, UNASSIGNED, groupTasks, rangeBoardGroups, type BoardRange, type GroupByKey } from '../components/Board/groupUtils';
+import { CURRENT_REF, isGroupRangeActive } from '../utils/groupRange';
 import {
   boardStateFromParams,
   boardStateOf,
@@ -116,7 +118,12 @@ export default function BoardPage() {
   const updateTask = useUpdateTask(projectKey || '');
 
   function setBoard(patch: Partial<BoardState>) {
-    setSearchParams(boardStateToParams({ ...board, ...patch }, activeFilterId), { replace: true });
+    const next = { ...board, ...patch };
+    // A specific reference group (sprint, version…) means nothing for another dimension.
+    if (patch.groupBy && patch.groupBy !== board.groupBy && !patch.range && next.range.ref !== CURRENT_REF) {
+      next.range = { ...next.range, ref: CURRENT_REF };
+    }
+    setSearchParams(boardStateToParams(next, activeFilterId), { replace: true });
   }
 
   function applySaved(filter: SavedFilter, replace = false) {
@@ -137,6 +144,22 @@ export default function BoardPage() {
     if (def) applySaved(def, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey, savedFilters]);
+
+  // Group range ("Plage de groupes") shared by the three views, plus what it hides (for the bar).
+  const boardRange = useMemo<BoardRange>(
+    () => ({ range: board.range, currentSprint: project?.currentSprint, currentVersion: project?.currentVersion }),
+    [board.range, project?.currentSprint, project?.currentVersion]
+  );
+  const rangeSummary = useMemo<RangeSummary | undefined>(() => {
+    if (!tasks || board.groupBy === 'none') return undefined;
+    const res = rangeBoardGroups(groupTasks(tasks, board.groupBy, taxonomies), board.groupBy, taxonomies, boardRange);
+    return {
+      hiddenGroups: res.hiddenGroups,
+      hiddenTasks: res.hiddenTasks,
+      refMissing: res.refMissing,
+      outOfRange: res.groups.filter((g) => g.outOfRange).length,
+    };
+  }, [tasks, board.groupBy, taxonomies, boardRange]);
 
   useEffect(() => writePref(SHOW_FILTERS_KEY, showFilters), [showFilters]);
   useEffect(() => writePref(EMPTY_COLUMNS_KEY, showEmptyColumns), [showEmptyColumns]);
@@ -176,7 +199,7 @@ export default function BoardPage() {
 
   const totalPoints = (tasks || []).reduce((a, t) => a + (t.complexity || 0), 0);
   const totalHours = (tasks || []).reduce((a, t) => a + hoursOf(t.duration), 0);
-  const activeCount = countActiveFilters(board.filters);
+  const activeCount = countActiveFilters(board.filters) + (board.groupBy !== 'none' && isGroupRangeActive(board.range) ? 1 : 0);
 
   return (
     <div>
@@ -287,6 +310,17 @@ export default function BoardPage() {
           onChange={(filters) => setBoard({ filters })}
         />
       )}
+      {showFilters && (
+        <GroupRangeBar
+          groupBy={board.groupBy}
+          taxonomies={taxonomies}
+          range={board.range}
+          onChange={(range) => setBoard({ range })}
+          summary={rangeSummary}
+          currentSprint={project?.currentSprint}
+          currentVersion={project?.currentVersion}
+        />
+      )}
 
       {isLoading && <div className="loadbox">Chargement des tâches…</div>}
 
@@ -303,6 +337,7 @@ export default function BoardPage() {
           users={assignable}
           laneHeight={laneHeight}
           onLaneHeightChange={setLaneHeight}
+          range={boardRange}
         />
       )}
       {!isLoading && tasks && board.view === 'jira' && (
@@ -318,6 +353,7 @@ export default function BoardPage() {
           users={assignable}
           laneHeight={laneHeight}
           onLaneHeightChange={setLaneHeight}
+          range={boardRange}
         />
       )}
       {!isLoading && tasks && board.view === 'list' && (
@@ -329,6 +365,7 @@ export default function BoardPage() {
           currentSprintKey={project?.currentSprint}
           sort={board.sort}
           onSortChange={(sort) => setBoard({ sort })}
+          range={boardRange}
         />
       )}
 

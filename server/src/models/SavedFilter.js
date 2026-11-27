@@ -22,6 +22,9 @@ const VIEWS = ['grouped', 'jira', 'list'];
 const VISIBILITIES = ['private', 'shared'];
 const GROUP_KEYS = ['none', 'sprint', 'version', 'category', 'techno', 'area', 'type', 'priority', 'status', 'assignee', 'parent'];
 const SORT_KEYS = ['taskId', 'title', 'status', 'priority', 'version', 'sprint', 'complexity', 'assignee', 'updatedAt', 'createdAt', 'dueDate'];
+const RANGE_MODES = ['all', 'from', 'until', 'around'];
+const RANGE_KEEP_SIDES = ['before', 'after', 'both'];
+const RANGE_LIMIT_MAX = 999;
 const DATE_VALUE = /^(\d{4}-\d{2}-\d{2}([T ][\d:.]+Z?([+-]\d{2}:?\d{2})?)?|-\d{1,4}[dwm]|@sprintStart|@sprintEnd|now)$/;
 
 // A named board configuration (filters + view + grouping + sort) saved by a
@@ -40,6 +43,9 @@ const savedFilterSchema = new Schema(
       key: { type: String, default: 'taskId' },
       dir: { type: Number, enum: [1, -1], default: 1 },
     },
+    // Board "group range" (see client utils/groupRange.ts): groups of an ordered
+    // dimension kept around a reference, with status exceptions. Always sanitized.
+    groupRange: { type: Schema.Types.Mixed, default: null },
     visibility: { type: String, enum: VISIBILITIES, default: 'private' },
     starredBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     defaultFor: [{ type: Schema.Types.ObjectId, ref: 'User' }],
@@ -67,9 +73,31 @@ function sanitizeFilters(input) {
   return out;
 }
 
+// Board group range: { mode, ref, before, after, keep[], keepSide, showNone } or null (= whole range).
+function sanitizeGroupRange(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const limit = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.min(RANGE_LIMIT_MAX, Math.floor(n)) : null;
+  };
+  const keep = Array.isArray(input.keep) ? input.keep.filter((x) => typeof x === 'string' && x && x.length <= 200) : [];
+  return {
+    mode: RANGE_MODES.includes(input.mode) ? input.mode : 'all',
+    ref: typeof input.ref === 'string' && input.ref.trim() ? input.ref.trim().slice(0, 200) : '@current',
+    before: limit(input.before),
+    after: limit(input.after),
+    keep: [...new Set(keep)].slice(0, 50),
+    keepSide: RANGE_KEEP_SIDES.includes(input.keepSide) ? input.keepSide : 'before',
+    showNone: input.showNone !== false,
+  };
+}
+
 module.exports = {
   SavedFilter: model('SavedFilter', savedFilterSchema),
   sanitizeFilters,
+  sanitizeGroupRange,
+  RANGE_MODES,
   FILTER_ARRAY_FIELDS,
   FILTER_DATE_FIELDS,
   VIEWS,

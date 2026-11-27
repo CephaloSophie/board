@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { boardStateOf, countActiveFilters, isSameBoardState, type BoardState } from '../../utils/boardUrlState';
 import { GROUP_OPTIONS } from './groupUtils';
+import { isGroupRangeActive } from '../../utils/groupRange';
 import Avatar from '../common/Avatar';
 
 const VIEW_LABELS: Record<string, string> = { grouped: 'Board', jira: 'Jira', list: 'Liste' };
@@ -19,7 +20,8 @@ function summary(f: SavedFilter): string {
   const state = boardStateOf(f);
   const n = countActiveFilters(state.filters);
   const group = GROUP_OPTIONS.find((o) => o.value === state.groupBy)?.label || state.groupBy;
-  return `${n} critère${n > 1 ? 's' : ''} · ${VIEW_LABELS[state.view]} · ${group}`;
+  const range = isGroupRangeActive(state.range) ? ' · plage' : '';
+  return `${n} critère${n > 1 ? 's' : ''} · ${VIEW_LABELS[state.view]} · ${group}${range}`;
 }
 
 /**
@@ -77,7 +79,7 @@ export default function SavedFiltersBar({
     if (!active) return;
     await update.mutateAsync({
       id: active._id,
-      data: { filters: board.filters, view: board.view, groupBy: board.groupBy, sort: board.sort },
+      data: { filters: board.filters, view: board.view, groupBy: board.groupBy, sort: board.sort, groupRange: board.range },
     });
     flash('Filtre mis à jour.');
   }
@@ -269,6 +271,7 @@ function SavedFilterModal({
           view: board.view,
           groupBy: board.groupBy,
           sort: board.sort,
+          groupRange: board.range,
         });
         onSaved(saved as SavedFilter, true);
       }
@@ -288,7 +291,7 @@ function SavedFilterModal({
         </div>
         {!filter && (
           <p className="text-muted" style={{ fontSize: 12 }}>
-            Les critères, la vue ({VIEW_LABELS[board.view]}), le regroupement et le tri actuels seront mémorisés.
+            Les critères, la vue ({VIEW_LABELS[board.view]}), le regroupement, la plage de groupes et le tri actuels seront mémorisés.
           </p>
         )}
         <div className="stack">

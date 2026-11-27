@@ -17,7 +17,10 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
 - **Hauteur de ligne constante** : chaque groupe (sprint, version…) a la même hauteur (Compacte,
   Normale, Grande, Très grande ou Auto) et **chaque colonne de statut défile séparément** ; le bord
   inférieur d'une ligne se glisse pour ajuster la hauteur de toutes les lignes (double-clic : valeur
-  par défaut). Préférence mémorisée dans le navigateur.
+  par défaut). Préférence mémorisée dans le navigateur. **Défilement enchaîné** : la molette fait
+  défiler la colonne survolée tant qu'elle a de la marge, puis, arrivée en haut / en bas (ou si la
+  colonne ne défile pas), continue sur le board : on passe d'un sprint / d'une version à l'autre sans
+  sortir le curseur des colonnes (défilement horizontal, Maj+molette et zoom inchangés).
 - **Cartes** : tâche parente (`↥ KB-12`), avancement des sous-tâches (`⊟ 2/5`), critères validés
   (`☑ 3/7`), merge request (état le plus avancé).
 - **Tâche** : titre, description, instructions, critères d'acceptation, statut, priorité, type,
@@ -63,11 +66,35 @@ projet) et `docs/product/SCRUM_JIRA_IMPORT_SPEC.md` (Scrum Master / import Jira)
   interne), **Avancement** (à faire / en cours / terminé) et **Étiquettes**.
 - **Valeurs dynamiques** : `Moi`, `Sprint courant`, `Sprints non terminés`, `Backlog (sans sprint)`,
   `Version courante`, `Versions non publiées` — résolues côté serveur à chaque requête.
-- **Tout l'état du board est dans l'URL** (vue, regroupement, tri, filtres, recherche) : chaque vue
+- **Plage de groupes** (ligne sous les filtres, dès qu'un regroupement est actif) : pour un
+  regroupement **ordonné** — **Sprint** (cycle de vie terminé → actif → prêt → brouillon, puis date de
+  début), **Version** (numéro sémantique, `10.2.0` < `10.10.0`, les clés non numériques après, par
+  date), **Priorité** et **Statut** (ordre de la taxonomie) — on choisit une **référence** (« Sprint
+  actuel » / « Version actuelle », dynamique comme `@current`, ou une valeur précise) et un mode :
+  « Tous les groupes » (défaut, comportement historique), « Référence et suivants », « Référence et
+  précédents » ou « Autour de la référence ». **Max. précédents / Max. suivants** limitent le nombre
+  de groupes de part et d'autre (vide = illimité ; ex. sprint actuel + 2 suivants). La plage se
+  calcule sur toutes les valeurs de la dimension (y compris archivées), indépendamment des filtres.
+  **Sauf statuts** : un groupe hors plage reste affiché s'il contient des tâches dans les statuts
+  choisis, **avec uniquement ces tâches** (le « reste à faire » des anciens sprints), « dans les
+  groupes » **précédents** (défaut), **suivants** ou **les deux** — par défaut les sprints à venir
+  limités par « Max. suivants » ne réapparaissent donc pas à cause de leurs tâches à faire ; en pointillés
+  avec un badge **« hors plage »** (nombre de tâches masquées en info-bulle, `↺` dans la barre
+  latérale). Les valeurs inconnues de la taxonomie sont considérées hors plage. La case « Backlog
+  (sans sprint) » / « Sans version » / « Non assigné »… masque ou affiche le groupe des tâches sans
+  valeur (visible par défaut, aussi pour les regroupements non ordonnés). Pour une dimension sans
+  ordre naturel (catégorie, techno, domaine, type, assigné, tâche parente), la plage est
+  indisponible (message d'aide). Résumé : groupes masqués, tâches hors vue, groupes hors plage
+  conservés ; référence introuvable → plage ignorée avec avertissement. S'applique aux vues Board,
+  Jira et Liste ; changer de regroupement ramène la référence sur « actuel ».
+- **Tout l'état du board est dans l'URL** (vue, regroupement, tri, filtres, recherche, plage de
+  groupes : `range`, `rangeRef`, `rangeBefore`, `rangeAfter`, `rangeKeep`, `rangeKeepSide`, `rangeNone`) : chaque vue
   se partage par lien.
 - **Filtres enregistrés** : privés ou partagés, favoris (raccourcis dans la barre), un filtre
   **par défaut** par utilisateur et par projet (appliqué à l'ouverture du board), indicateur
-  « modifié », enregistrer / enregistrer sous / renommer / supprimer / dupliquer (API).
+  « modifié », enregistrer / enregistrer sous / renommer / supprimer / dupliquer (API). La **plage de
+  groupes** est enregistrée avec le filtre (`groupRange`) et restaurée à son application ; le
+  remplacement d'une valeur de taxonomie met à jour la référence et les statuts d'exception.
 - Un filtre enregistré sert aussi de source aux widgets de dashboard et à l'export CSV.
 
 ## 3. Dashboards
@@ -208,7 +235,8 @@ réinitialisation du mot de passe, désactivation / réactivation.
 | Sous-tâches | 1 niveau (sous-tâche) + epics | hiérarchie libre validée, avancement consolidé, board par module / package |
 | Lien merge request | intégration dev (applications Git) | lien collé, forge reconnue, état et historique, sans configuration |
 | Discussions | commentaires à plat | épinglage, résolution, citations, filtres, brouillons |
-| Board à colonnes défilantes | hauteur libre | hauteur de ligne constante, défilement par statut |
+| Board à colonnes défilantes | hauteur libre | hauteur de ligne constante, défilement par statut enchaîné avec le board |
+| Fenêtre de sprints / versions | filtre JQL manuel | sprint actuel ± N, reste à faire des anciens sprints conservé |
 
 ## 12. Limites connues et prochain lot
 

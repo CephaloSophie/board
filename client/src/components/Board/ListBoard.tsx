@@ -4,7 +4,8 @@ import { metaOf } from '../../utils/format';
 import Avatar from '../common/Avatar';
 import GroupSidebar from './GroupSidebar';
 import GroupStats from './GroupStats';
-import { groupTasks, type GroupByKey } from './groupUtils';
+import { groupTasks, rangeBoardGroups, type BoardRange, type GroupByKey } from './groupUtils';
+import OutOfRangeBadge from './OutOfRangeBadge';
 
 type SortKey = 'taskId' | 'title' | 'status' | 'priority' | 'version' | 'sprint' | 'complexity' | 'assignee';
 const SORT_KEYS: SortKey[] = ['taskId', 'title', 'status', 'priority', 'version', 'sprint', 'complexity', 'assignee'];
@@ -19,6 +20,7 @@ export default function ListBoard({
   currentSprintKey,
   sort,
   onSortChange,
+  range,
 }: {
   tasks: Task[];
   taxonomies: TaxonomyItem[] | undefined;
@@ -27,6 +29,8 @@ export default function ListBoard({
   currentSprintKey?: string | null;
   sort?: BoardSort;
   onSortChange?: (sort: BoardSort) => void;
+  // Group range filter ("Plage de groupes"), applied after grouping.
+  range?: BoardRange;
 }) {
   const [localSort, setLocalSort] = useState<BoardSort>({ key: 'taskId', dir: 1 });
   const effective = sort ?? localSort;
@@ -35,7 +39,10 @@ export default function ListBoard({
   const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const groups = useMemo(() => groupTasks(tasks, groupBy, taxonomies), [tasks, groupBy, taxonomies]);
+  const groups = useMemo(
+    () => rangeBoardGroups(groupTasks(tasks, groupBy, taxonomies), groupBy, taxonomies, range).groups,
+    [tasks, groupBy, taxonomies, range]
+  );
 
   function sortBy(key: SortKey) {
     const next: BoardSort = key === sortKey ? { key, dir: sortDir === 1 ? -1 : 1 } : { key, dir: 1 };
@@ -142,7 +149,7 @@ export default function ListBoard({
   const body = (
     <>
       {groups.map((g) => (
-        <section id={`list-group-${cssId(g.key)}`} className="group-block" key={g.key}>
+        <section id={`list-group-${cssId(g.key)}`} className={`group-block${g.outOfRange ? ' group-block--out' : ''}`} key={g.key}>
           {groupBy !== 'none' && (
             <header className="group-block__head">
               <span className="group-block__title" style={g.color ? { color: g.color } : undefined}>
@@ -150,6 +157,7 @@ export default function ListBoard({
                 {g.label}
               </span>
               {g.sublabel && <span className="group-block__sub">{g.sublabel}</span>}
+              {g.outOfRange && <OutOfRangeBadge hiddenCount={g.hiddenCount} />}
               <GroupStats tasks={g.tasks} taxonomies={taxonomies} />
             </header>
           )}

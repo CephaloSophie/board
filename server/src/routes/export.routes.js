@@ -150,7 +150,7 @@ router.get('/', async (req, res) => {
       tasks: (e.tasks || []).map((l) => ({ taskId: l.taskId, note: l.note, outcome: l.outcome, order: l.order, presenter: uname(l.presenter) })),
       actionItems: (e.actionItems || []).map((a) => ({ text: a.text, done: a.done, assignee: uname(a.assignee) })),
     })),
-    savedFilters: filters.map((f) => ({ name: f.name, description: f.description, filters: f.filters, view: f.view, groupBy: f.groupBy, sort: f.sort, owner: uname(f.owner) })),
+    savedFilters: filters.map((f) => ({ name: f.name, description: f.description, filters: f.filters, view: f.view, groupBy: f.groupBy, sort: f.sort, groupRange: f.groupRange ?? null, owner: uname(f.owner) })),
   };
   res.attachment(`${p.key}-export.json`);
   res.type('application/json');

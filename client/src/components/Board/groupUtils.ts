@@ -1,6 +1,14 @@
 import type { Task, TaxonomyItem, TaxonomyKind } from '../../types';
 import { taxonomiesByKind } from '../../api/taxonomies';
 import { metaOf } from '../../utils/format';
+import {
+  applyGroupRange,
+  isOrderedDimension,
+  orderDimensionValues,
+  resolveRangeRef,
+  type GroupRange,
+  type RangeResult,
+} from '../../utils/groupRange';
 
 export type GroupByKey =
   | 'none'
@@ -164,3 +172,25 @@ export function groupTasks(
 }
 
 export const UNASSIGNED = UNGROUPED_KEY;
+
+// Range filter of the board ("Plage de groupes"), see utils/groupRange.ts.
+export interface BoardRange {
+  range: GroupRange;
+  currentSprint?: string | null;
+  currentVersion?: string | null;
+}
+
+export function rangeBoardGroups(
+  groups: TaskGroup[],
+  groupBy: GroupByKey,
+  taxonomies: TaxonomyItem[] | undefined,
+  input?: BoardRange
+): RangeResult<TaskGroup> {
+  if (!input || groupBy === 'none') return { groups, hiddenGroups: 0, hiddenTasks: 0, refMissing: false, applied: false };
+  const ordered = isOrderedDimension(groupBy);
+  const values = ordered ? orderDimensionValues(groupBy, taxonomies || []) : [];
+  const refKey = ordered
+    ? resolveRangeRef(groupBy, input.range.ref, values, { currentSprint: input.currentSprint, currentVersion: input.currentVersion })
+    : null;
+  return applyGroupRange(groups, { order: values.map((v) => v.key), refKey, range: input.range, noneKey: UNGROUPED_KEY, ordered });
+}

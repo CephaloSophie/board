@@ -1,4 +1,5 @@
 import type { TaskGroup } from './groupUtils';
+import type { RangeGroupInfo } from '../../utils/groupRange';
 import { SPRINT_STATUS_META } from '../Admin/TaxonomyAdmin';
 import type { SprintStatus } from '../../types';
 
@@ -13,7 +14,7 @@ export default function GroupSidebar({
   currentSprintKey,
 }: {
   title: string;
-  groups: TaskGroup[];
+  groups: (TaskGroup & RangeGroupInfo)[];
   activeKey: string | null;
   onSelect: (key: string) => void;
   currentSprintKey?: string | null;
@@ -38,13 +39,14 @@ export default function GroupSidebar({
             key={g.key}
             className={`groups-sidebar__item${activeKey === g.key ? ' active' : ''}`}
             onClick={() => onSelect(g.key)}
-            title={isCurrent ? 'Sprint courant' : undefined}
+            title={g.outOfRange ? 'Hors plage : seules les tâches des statuts conservés sont affichées' : isCurrent ? 'Sprint courant' : undefined}
           >
             <span className="dot" style={{ background: g.color || 'var(--soft)' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {g.label}
               {isCurrent && ' ★'}
             </span>
+            {g.outOfRange && <span className="range-dot" aria-label="hors plage">↺</span>}
             {statusMeta && (
               <span className="sprint-tag" style={{ background: `${statusMeta.color}33`, color: statusMeta.color }}>
                 {statusMeta.label}
